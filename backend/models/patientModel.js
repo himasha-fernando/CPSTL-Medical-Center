@@ -22,14 +22,15 @@ const formatDateTime = (dateStr) => {
 const addPatient = (patientData, callback) => {
   const sql = `
     INSERT INTO patients 
-    (registrationNo, name, epfNo, contactNo, gender, dateOfBirth, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    (registrationNo, name, epfNo, department, contactNo, gender, dateOfBirth, status)
+    VALUES (?, ?, ?, ?, ?, ?,?, ?)
   `;
 
   const values = [
     toNullable(patientData.registrationNo),
     toNullable(patientData.name),
     toNullable(patientData.epfNo),
+    toNullable(patientData.department),
     toNullable(patientData.contactNo),
     toNullable(patientData.gender),
     toNullable(patientData.dateOfBirth),

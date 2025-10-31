@@ -475,6 +475,99 @@ function AddNewPatient() {
     }
   }, [formData.dateOfBirth]);
 
+<<<<<<< HEAD
+=======
+  // Handle field changes and auto-update dependent fields
+  const handleChange = (e, key = null) => {
+    const { name, value, checked, type } = e.target;
+  
+    setFormData((prevData) => {
+      let updatedData = { ...prevData };
+  
+      // Checkbox handler
+      if (type === "checkbox") {
+        const targetKey = key || name;
+        const currentValues = prevData[targetKey] || [];
+        updatedData[targetKey] = checked
+          ? [...currentValues, value]
+          : currentValues.filter((item) => item !== value);
+      } 
+      // Date of Birth → Auto-calculate age
+      else if (name === "dateOfBirth") {
+        updatedData.dateOfBirth = value;
+        updatedData.age = calculateAge(value);
+      } 
+      // Weight or Height → Auto-calculate BMI + BMI Category
+      else if (name === "weight" || name === "height") {
+        updatedData[name] = value;
+      
+        const height = parseFloat(
+          name === "height" ? value : prevData.height
+        );
+        const weight = parseFloat(
+          name === "weight" ? value : prevData.weight
+        );
+      
+        if (height > 0 && weight > 0) {
+          const heightInMeters = height / 100;
+          const bmiValue = weight / (heightInMeters * heightInMeters);
+          const bmi = bmiValue.toFixed(1);
+      
+          let bmiCategory = "";
+          if (bmiValue < 18.5) bmiCategory = "Underweight";
+          else if (bmiValue < 25) bmiCategory = "Normal";
+          else if (bmiValue < 30) bmiCategory = "Overweight";
+          else if (bmiValue < 35) bmiCategory = "Obesity Class I";
+          else if (bmiValue < 40) bmiCategory = "Obesity Class II";
+          else bmiCategory = "Obesity Class III";
+      
+          updatedData.bmi = bmi;
+          updatedData.bmiCategory = bmiCategory;
+        } else {
+          updatedData.bmi = "";
+          updatedData.bmiCategory = "";
+        }
+      }
+
+        // Vision Fields 
+    else if (name === "visionLeft" || name === "visionRight") {
+      updatedData[name] = value;
+      updatedData.visionCategory = getVisionCategory(
+        name === "visionRight" ? value : updatedData.visionRight,
+        name === "visionLeft" ? value : updatedData.visionLeft
+      );
+    }
+
+
+       
+      // Default field update
+      else {
+        updatedData[name] = value;
+      }
+  
+      return updatedData;
+    });
+  
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+  };
+
+
+
+  const CURRENT_PROBLEM_OPTIONS = [
+    "Underweight",
+    "Normal BMI",
+    "Overweight",
+    "Obesity Class 1",
+    "Obesity Class 2",
+    "Obesity Class 3",
+    
+  ];
+  
+
+
+>>>>>>> eeb9958 (Implement Definitions)
   //Reusable checkbox handler
   const handleCheckboxChange = (e, key) => handleChange(e, key);
 
@@ -844,6 +937,71 @@ function AddNewPatient() {
     setIsSidebarOpen(false);
   };
 
+<<<<<<< HEAD
+=======
+  const getWaistCategory = (waist, gender) => {
+    if (!waist || !gender) return "";
+  
+    if (gender === "Male") {
+      return waist >= 90 ? "Abdominal Obesity" : "Normal";
+    } else if (gender === "Female") {
+      return waist >= 80 ? "Abdominal Obesity" : "Normal";
+    }
+    return "";
+  };
+
+  //Determine Vision Category based on both eyes
+const getVisionCategory = (rightEye, leftEye) => {
+  if (!rightEye || !leftEye) return "";
+
+  const normalCombinations = [
+    ["6/6", "6/6"],
+    ["6/12", "6/12"],
+    ["6/6", "6/18"],
+    ["6/18", "6/6"],
+  ];
+
+  const isNormal = normalCombinations.some(
+    ([r, l]) =>
+      r.trim().toLowerCase() === rightEye.trim().toLowerCase() &&
+      l.trim().toLowerCase() === leftEye.trim().toLowerCase()
+  );
+
+  return isNormal ? "Normal" : "Poor Vision";
+};
+
+
+const getDiabetesCategory = (rbsValue) => {
+  const value = parseFloat(rbsValue);
+  if (isNaN(value)) return "";
+
+  if (value < 140) return "Normal";
+  if (value >= 141 && value <= 199) return "Prediabetes";
+  if (value >= 200) return "Diabetes";
+
+  return "";
+};
+
+
+
+const getHypertensionCategory = (systolic, diastolic) => {
+  if (!systolic || !diastolic) return "";
+
+  const s = parseFloat(systolic);
+  const d = parseFloat(diastolic);
+
+  if (s < 130 && d < 85) return "Normal";
+  if ((s >= 130 && s <= 139) || (d >= 85 && d <= 89)) return "High Normal BP";
+  if ((s >= 140 && s <= 159) || (d >= 90 && d <= 99)) return "Grade 1 Hypertension";
+  if (s >= 160 || d >= 100) return "Grade 2 Hypertension";
+  if (s >= 140 && d < 90) return "Isolated Systolic Hypertension";
+
+  return "";
+};
+
+
+
+>>>>>>> eeb9958 (Implement Definitions)
   const commonMedicalConditions = ["DM", "HTN", "CHOL", "IHD", "CA"];
 
   return (
@@ -1316,33 +1474,64 @@ function AddNewPatient() {
                             </p>
                           )}
                         </div>
-                        <div>
-                          <label
-                            htmlFor="bp"
-                            className="block text-xs font-medium text-gray-700"
-                          >
-                            BP (Blood Pressure)
-                          </label>
-                          <input
-                            type="text"
-                            id="bp"
-                            name="bp"
-                            value={formData.bp}
-                            onChange={handleChange}
-                            placeholder="120/80"
-                            className={`mt-1 block w-full border rounded-md shadow-sm p-1 focus:ring-2 focus:ring-red-500 ${
-                              errors.bp
-                                ? "border-red-500 bg-red-50"
-                                : "border-gray-300"
-                            }`}
-                          />
-                          {errors.bp && (
-                            <p className="mt-1 text-xs text-red-500 flex items-center">
-                              <ExclamationCircleIcon className="w-3 h-3 mr-1" />
-                              {errors.bp}
-                            </p>
-                          )}
-                        </div>
+                       {/* Blood Pressure */}
+<div className="flex items-start space-x-4">
+  {/* Systolic BP */}
+  <div className="flex-1">
+    <label
+      htmlFor="systolicBP"
+      className="block text-xs font-medium text-gray-700"
+    >
+      Systolic BP (mmHg)
+    </label>
+    <input
+      type="number"
+      id="systolicBP"
+      name="systolicBP"
+      value={formData.systolicBP}
+      onChange={handleChange}
+      placeholder="e.g., 120"
+      className={`mt-1 block w-full border rounded-md shadow-sm p-1 focus:ring-2 focus:ring-red-500 ${
+        errors.systolicBP ? "border-red-500 bg-red-50" : "border-gray-300"
+      }`}
+    />
+    {errors.systolicBP && (
+      <p className="mt-1 text-xs text-red-500 flex items-center">
+        <ExclamationCircleIcon className="w-3 h-3 mr-1" />
+        {errors.systolicBP}
+      </p>
+    )}
+  </div>
+
+  {/* Diastolic BP */}
+  <div className="flex-1">
+    <label
+      htmlFor="diastolicBP"
+      className="block text-xs font-medium text-gray-700"
+    >
+      Diastolic BP (mmHg)
+    </label>
+    <input
+      type="number"
+      id="diastolicBP"
+      name="diastolicBP"
+      value={formData.diastolicBP}
+      onChange={handleChange}
+      placeholder="e.g., 80"
+      className={`mt-1 block w-full border rounded-md shadow-sm p-1 focus:ring-2 focus:ring-red-500 ${
+        errors.diastolicBP ? "border-red-500 bg-red-50" : "border-gray-300"
+      }`}
+    />
+    {errors.diastolicBP && (
+      <p className="mt-1 text-xs text-red-500 flex items-center">
+        <ExclamationCircleIcon className="w-3 h-3 mr-1" />
+        {errors.diastolicBP}
+      </p>
+    )}
+  </div>
+</div>
+
+
                       </div>
                     </div>
 
@@ -1564,32 +1753,66 @@ function AddNewPatient() {
                       )}
                     </div>
                     <div>
-                      <label
-                        htmlFor="smokingHabits"
-                        className="block text-xs font-medium text-gray-700"
-                      >
-                        Smoking Habits
-                      </label>
-                      <textarea
-                        id="smokingHabits"
-                        name="smokingHabits"
-                        rows="3"
-                        value={formData.smokingHabits}
-                        onChange={handleChange}
-                        placeholder="Describe frequency and amount..."
-                        className={`mt-1 block w-full border rounded-md shadow-sm p-1 focus:ring-2 focus:ring-red-500 ${
-                          errors.smokingHabits
-                            ? "border-red-500 bg-red-50"
-                            : "border-gray-300"
-                        }`}
-                      ></textarea>
-                      {errors.smokingHabits && (
-                        <p className="mt-1 text-xs text-red-500 flex items-center">
-                          <ExclamationCircleIcon className="w-3 h-3 mr-1" />
-                          {errors.smokingHabits}
-                        </p>
-                      )}
-                    </div>
+  <label
+    htmlFor="smokingHabits"
+    className="block text-xs font-medium text-gray-700"
+  >
+    Smoking Habits
+  </label>
+
+  <div
+    className={`mt-2 flex flex-col space-y-2 p-2 rounded-md ${
+      errors.smokingHabits
+        ? "border border-red-500 bg-red-50"
+        : "bg-gray-50"
+    }`}
+  >
+    <div className="flex items-center">
+      <input
+        type="radio"
+        id="occasionalSmoker"
+        name="smokingHabits"
+        value="Occasional Smoker"
+        checked={formData.smokingHabits === "Occasional Smoker"}
+        onChange={handleChange}
+        className="h-3 w-3 text-red-600 border-gray-300 focus:ring-red-500"
+      />
+      <label
+        htmlFor="occasionalSmoker"
+        className="ml-2 text-xs text-gray-700"
+      >
+        Occasional Smoker
+      </label>
+    </div>
+
+    <div className="flex items-center">
+      <input
+        type="radio"
+        id="regularSmoker"
+        name="smokingHabits"
+        value="Regular Smoker"
+        checked={formData.smokingHabits === "Regular Smoker"}
+        onChange={handleChange}
+        className="h-3 w-3 text-red-600 border-gray-300 focus:ring-red-500"
+      />
+      <label
+        htmlFor="regularSmoker"
+        className="ml-2 text-xs text-gray-700"
+      >
+        Regular Smoker
+      </label>
+    </div>
+  </div>
+
+  {errors.smokingHabits && (
+    <p className="mt-1 text-xs text-red-500 flex items-center">
+      <ExclamationCircleIcon className="w-3 h-3 mr-1" />
+      {errors.smokingHabits}
+    </p>
+  )}
+</div>
+
+
                   </div>
                 )}
 
@@ -1707,6 +1930,7 @@ function AddNewPatient() {
                               ))}
                             </div>
 
+<<<<<<< HEAD
                             <div className="mt-3">
                               <label className="block text-xs font-medium text-gray-700">
                                 Additional details
@@ -1735,6 +1959,167 @@ function AddNewPatient() {
                     </div>
                   </div>
                 )}
+=======
+        //Compute diabetes category
+          const diabetesCategory = getDiabetesCategory(formData.rbs);
+
+
+        return (
+          <div
+            key={idx}
+            className="relative border border-red-200 bg-red-50 rounded-lg p-4"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-700">
+                Issues
+              </span>
+              <div className="flex items-center gap-1">
+                {formData.currentProblemsEntries.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveProblemSection(idx)}
+                    className="inline-flex items-center text-red-600 hover:text-red-700 px-2 py-1 rounded"
+                    title="Remove this set"
+                  >
+                    <TrashIcon className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="flex flex-wrap items-start gap-4 w-full">
+
+{/* BMI Section */}
+{bmiCategory && (
+  <div className="flex flex-col items-start bg-white border border-red-200 rounded-xl shadow-sm p-3 w-48">
+    <div className="text-xs font-medium text-gray-600 mb-1">
+      {formData.step2Titles?.bmi || "BMI"}
+    </div>
+    <label className="flex items-center">
+      <input
+        type="checkbox"
+        checked={true}
+        readOnly
+        className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+      />
+      <span className="ml-2 text-xs text-gray-800">{bmiCategory}</span>
+    </label>
+  </div>
+)}
+
+{/* Waist Section */}
+{waistCategory && (
+  <div className="flex flex-col items-start bg-white border border-red-200 rounded-xl shadow-sm p-3 w-48">
+    <div className="text-xs font-medium text-gray-600 mb-1">
+      {formData.step2Titles?.waist || "Waist"}
+    </div>
+    <label className="flex items-center">
+      <input
+        type="checkbox"
+        checked={true}
+        readOnly
+        className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+      />
+      <span className="ml-2 text-xs text-gray-800">{waistCategory}</span>
+    </label>
+  </div>
+)}
+
+{/* Vision Section */}
+{formData.visionCategory && (
+  <div className="flex flex-col items-start bg-white border border-red-200 rounded-xl shadow-sm p-3 w-48">
+    <div className="text-xs font-medium text-gray-600 mb-1">
+      {formData.step2Titles?.vision || "Vision"}
+    </div>
+    <label className="flex items-center">
+      <input
+        type="checkbox"
+        checked={true}
+        readOnly
+        className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+      />
+      <span className="ml-2 text-xs text-gray-800">
+        {formData.visionCategory}
+      </span>
+    </label>
+  </div>
+)}
+
+{/* Diabetes Section */}
+{diabetesCategory && (
+  <div className="flex flex-col items-start bg-white border border-red-200 rounded-xl shadow-sm p-3 w-48">
+    <div className="text-xs font-medium text-gray-600 mb-1">
+      {formData.step2Titles?.diabetes || "Diabetes Diagnosis"}
+    </div>
+    <label className="flex items-center">
+      <input
+        type="checkbox"
+        checked={true}
+        readOnly
+        className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+      />
+      <span className="ml-2 text-xs text-gray-800">
+        {diabetesCategory}
+      </span>
+    </label>
+  </div>
+)}
+
+
+{/* Blood Pressure Section */}
+{getHypertensionCategory(formData.systolicBP, formData.diastolicBP) && (
+  <div className="flex flex-col items-start bg-white border border-red-200 rounded-xl shadow-sm p-3 w-56">
+    <div className="text-xs font-medium text-gray-600 mb-1">
+      {formData.step2Titles?.bp || "Blood Pressure"}
+    </div>
+    <label className="flex items-center">
+      <input
+        type="checkbox"
+        checked={true}
+        readOnly
+        className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+      />
+      <span className="ml-2 text-xs text-gray-800">
+        {getHypertensionCategory(formData.systolicBP, formData.diastolicBP)}
+      </span>
+    </label>
+  </div>
+)}
+
+
+
+
+</div>
+
+
+            <div className="mt-3">
+              <label className="block text-xs font-medium text-gray-700">
+                Additional details
+              </label>
+              <textarea
+                rows={3}
+                value={entry.details}
+                onChange={(e) =>
+                  handleEntryDetailsChange(idx, e.target.value)
+                }
+                className="mt-1 block w-full border rounded-md shadow-sm p-1 text-sm border-gray-300 focus:ring-2 focus:ring-red-500 bg-white"
+                placeholder="Describe current symptoms and issues..."
+              />
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Validation message */}
+      {errors.currentProblems && (
+        <p className="text-xs text-red-600 flex items-center">
+          <ExclamationCircleIcon className="w-3 h-3 mr-1" />
+          {errors.currentProblems}
+        </p>
+      )}
+    </div>
+  </div>
+)}
+>>>>>>> eeb9958 (Implement Definitions)
 
                 {/* Step 6: Screening Tests*/}
                 {currentStep === 6 && (

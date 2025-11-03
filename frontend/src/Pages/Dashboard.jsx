@@ -437,7 +437,7 @@ function Dashboard() {
         onCloseSidebar={closeSidebar}
         currentPage="Dashboard"
       />
-
+      
       <main className="flex-1 flex flex-col overflow-hidden">
         <AppHeader onMenuToggle={toggleSidebar} isSidebarOpen={isSidebarOpen} />
 

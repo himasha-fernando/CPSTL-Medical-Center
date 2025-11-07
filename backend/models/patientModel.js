@@ -85,6 +85,28 @@ const checkPatient = (req, res) => {
     }
   });
 };
+
+// Get absent patient count per department (no visit within 6 months)
+const getAbsentPatientCountByDepartment = (callback) => {
+  const sql = `
+    SELECT 
+      p.department,
+      COUNT(p.id) AS absentCount
+    FROM patients p
+    LEFT JOIN (
+      SELECT 
+        patient_id, 
+        MAX(visitDate) AS lastVisit
+      FROM patientmedicalrecords
+      GROUP BY patient_id
+    ) m ON p.id = m.patient_id
+    WHERE 
+      (m.lastVisit IS NULL OR m.lastVisit < DATE_SUB(CURDATE(), INTERVAL 6 MONTH))
+    GROUP BY p.department
+  `;
+
+  db.query(sql, callback);
+};
 module.exports = {
   addPatient,
   getPatients,
@@ -92,4 +114,5 @@ module.exports = {
   deletePatient,
   getPatientCount,
   checkPatient,
+  getAbsentPatientCountByDepartment
 };

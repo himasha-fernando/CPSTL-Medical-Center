@@ -75,6 +75,17 @@ const checkPatient = (req, res) => {
     }
   });
 };
+
+// Get absent patient count per department (6+ months)
+const getAbsentPatientCountByDepartment = (req, res) => {
+  patientModel.getAbsentPatientCountByDepartment((err, results) => {
+    if (err) {
+      console.error("Error fetching absent patient count:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+    res.json(results);
+  });
+};
 module.exports = {
   createPatient,
   getAllPatients,
@@ -82,4 +93,5 @@ module.exports = {
   deletePatient,
   getPatientCount,
   checkPatient,
+  getAbsentPatientCountByDepartment
 };

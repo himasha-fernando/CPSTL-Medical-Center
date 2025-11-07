@@ -9,6 +9,7 @@ import ManagePatients from "./Pages/ManagePatients";
 import ManageStaff from "./Pages/ManageStaff";
 import AddStaff from "./Pages/AddStaff";
 import RegisterPatient from "./Pages/RegisterPatient";
+import PatientCount from "./Pages/PatientCount";
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
           <Route path="/ManageStaff" element={<ManageStaff />} />
           <Route path="/AddStaff" element={<AddStaff />} />
           <Route path="/RegisterPatient" element={<RegisterPatient />} />
+          <Route path="/PatientCount" element={<PatientCount />} />
         </Routes>
       </div>
     </Router>

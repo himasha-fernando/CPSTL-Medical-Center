@@ -7,7 +7,8 @@ const {
   getPatientById,
   deletePatient,
   getPatientCount,
-  checkPatient
+  checkPatient,
+  getAbsentPatientCountByDepartment
 } = require("../Controllers/patientController");
 
 
@@ -22,6 +23,9 @@ router.get("/count", getPatientCount);
 
 // Check if patient exists
 router.get("/check",checkPatient);
+
+// Get absent patient count
+router.get("/absentCount", getAbsentPatientCountByDepartment);
 
 // Get patient by id
 router.get("/:id", getPatientById);

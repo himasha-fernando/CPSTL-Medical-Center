@@ -437,7 +437,7 @@ function AddNewPatient() {
 
   //handle checkbox change
 
-  const handleChange = (e, key = null) => {
+ /*  const handleChange = (e, key = null) => {
     const { name, value, checked, type } = e.target;
 
     setFormData((prevData) => {
@@ -463,7 +463,7 @@ function AddNewPatient() {
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: "" }));
     }
-  };
+  }; */
 
   // Automatically calculate age when DOB is fetched from database
   useEffect(() => {
@@ -475,8 +475,6 @@ function AddNewPatient() {
     }
   }, [formData.dateOfBirth]);
 
-<<<<<<< HEAD
-=======
   // Handle field changes and auto-update dependent fields
   const handleChange = (e, key = null) => {
     const { name, value, checked, type } = e.target;
@@ -492,12 +490,12 @@ function AddNewPatient() {
           ? [...currentValues, value]
           : currentValues.filter((item) => item !== value);
       } 
-      // Date of Birth → Auto-calculate age
+      //Auto calculate age
       else if (name === "dateOfBirth") {
         updatedData.dateOfBirth = value;
         updatedData.age = calculateAge(value);
       } 
-      // Weight or Height → Auto-calculate BMI + BMI Category
+      //  BMI
       else if (name === "weight" || name === "height") {
         updatedData[name] = value;
       
@@ -528,6 +526,19 @@ function AddNewPatient() {
           updatedData.bmiCategory = "";
         }
       }
+
+       // Waist 
+    else if (name === "waist") {
+      updatedData.waist = value;
+      const gender = updatedData.gender || prevData.gender;
+      if (gender && value) {
+        updatedData.getwaistCategory = getWaistCategory(parseFloat(value), gender);
+      } else {
+        updatedData.getwaistCategory = "";
+      }
+    }
+
+
 
         // Vision Fields 
     else if (name === "visionLeft" || name === "visionRight") {
@@ -567,7 +578,7 @@ function AddNewPatient() {
   
 
 
->>>>>>> eeb9958 (Implement Definitions)
+
   //Reusable checkbox handler
   const handleCheckboxChange = (e, key) => handleChange(e, key);
 
@@ -937,8 +948,6 @@ function AddNewPatient() {
     setIsSidebarOpen(false);
   };
 
-<<<<<<< HEAD
-=======
   const getWaistCategory = (waist, gender) => {
     if (!waist || !gender) return "";
   
@@ -1000,9 +1009,12 @@ const getHypertensionCategory = (systolic, diastolic) => {
 };
 
 
-
->>>>>>> eeb9958 (Implement Definitions)
   const commonMedicalConditions = ["DM", "HTN", "CHOL", "IHD", "CA"];
+   
+  
+  //Compute diabetes category
+    const diabetesCategory = getDiabetesCategory(formData.rbs);
+    
 
   return (
     <div className="flex h-screen bg-gray-100 font-sans">
@@ -1816,281 +1828,146 @@ const getHypertensionCategory = (systolic, diastolic) => {
                   </div>
                 )}
 
-                {/* Step 5: Current Problems (UPDATED with inline + on Issues) */}
-                {currentStep === 5 && (
-                  <div>
-                    <h1 className="text-xl font-semibold text-gray-800 mb-4 flex items-center bg-red-50 p-3 rounded-lg border border-red-200">
-                      <ExclamationCircleIcon className="w-6 h-6 mr-2 text-red-500" />
-                      Current Problems
-                    </h1>
+               {/* Step 5: Current Problems (with all definitions under Issues) */}
+{currentStep === 5 && (
+  <div>
+    <h1 className="text-xl font-semibold text-gray-800 mb-4 flex items-center bg-red-50 p-3 rounded-lg border border-red-200">
+      <ExclamationCircleIcon className="w-6 h-6 mr-2 text-red-500" />
+      Current Problems
+    </h1>
 
-                    <div className="space-y-4">
-                      {formData.currentProblemsEntries.map((entry, idx) => {
-                        const options = [
-                          ...CURRENT_PROBLEM_OPTIONS,
-                          ...(entry.customOptions || []),
-                        ];
-                        return (
-                          <div
-                            key={idx}
-                            className="relative border border-red-200 bg-red-50 rounded-lg p-4"
-                          >
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="text-sm font-medium text-gray-700">
-                                Issues
-                              </span>
-                              <div className="flex items-center gap-1">
-                                {/* Inline add custom issue */}
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleStartAddCustomOption(idx)
-                                  }
-                                  className="inline-flex items-center text-red-600 hover:text-red-700 px-2 py-1 rounded"
-                                  title="Add custom issue"
-                                >
-                                  <PlusIcon className="w-5 h-5" />
-                                </button>
-                                {formData.currentProblemsEntries.length > 1 && (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      handleRemoveProblemSection(idx)
-                                    }
-                                    className="inline-flex items-center text-red-600 hover:text-red-700 px-2 py-1 rounded"
-                                    title="Remove this set"
-                                  >
-                                    <TrashIcon className="w-5 h-5" />
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-
-                            {entry.addingCustom && (
-                              <div className="mt-1 mb-2 flex items-center gap-2">
-                                <input
-                                  type="text"
-                                  value={entry.newCustomLabel || ""}
-                                  onChange={(e) =>
-                                    handleCustomOptionInputChange(
-                                      idx,
-                                      e.target.value
-                                    )
-                                  }
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter") {
-                                      e.preventDefault();
-                                      handleConfirmAddCustomOption(idx);
-                                    }
-                                  }}
-                                  className="flex-1 border rounded-md p-1 text-sm focus:ring-2 focus:ring-red-500 border-gray-300 bg-white"
-                                  placeholder="Enter custom issue label"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleConfirmAddCustomOption(idx)
-                                  }
-                                  className="inline-flex items-center justify-center px-2 py-2 bg-red-500 text-white rounded-md hover:bg-red-600"
-                                  title="Add"
-                                >
-                                  <CheckIcon className="w-4 h-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleCancelAddCustomOption(idx)
-                                  }
-                                  className="inline-flex items-center justify-center px-2 py-2 text-gray-600 hover:text-gray-800"
-                                  title="Cancel"
-                                >
-                                  <XMarkIcon className="w-4 h-4" />
-                                </button>
-                              </div>
-                            )}
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-                              {options.map((opt) => (
-                                <label
-                                  key={opt}
-                                  className="flex items-center bg-white rounded-md border border-red-200 px-3 py-2 shadow-sm"
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={entry.selected.includes(opt)}
-                                    onChange={() =>
-                                      handleToggleProblem(idx, opt)
-                                    }
-                                    className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
-                                  />
-                                  <span className="ml-2 text-xs text-gray-800">
-                                    {opt}
-                                  </span>
-                                </label>
-                              ))}
-                            </div>
-
-<<<<<<< HEAD
-                            <div className="mt-3">
-                              <label className="block text-xs font-medium text-gray-700">
-                                Additional details
-                              </label>
-                              <textarea
-                                rows={3}
-                                value={entry.details}
-                                onChange={(e) =>
-                                  handleEntryDetailsChange(idx, e.target.value)
-                                }
-                                className="mt-1 block w-full border rounded-md shadow-sm p-1 text-sm border-gray-300 focus:ring-2 focus:ring-red-500 bg-white"
-                                placeholder="Describe current symptoms and issues..."
-                              />
-                            </div>
-                          </div>
-                        );
-                      })}
-
-                      {/* Validation message */}
-                      {errors.currentProblems && (
-                        <p className="text-xs text-red-600 flex items-center">
-                          <ExclamationCircleIcon className="w-3 h-3 mr-1" />
-                          {errors.currentProblems}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
-=======
-        //Compute diabetes category
-          const diabetesCategory = getDiabetesCategory(formData.rbs);
-
+    <div className="space-y-4">
+      {formData.currentProblemsEntries.map((entry, idx) => {
+        const options = [
+          ...CURRENT_PROBLEM_OPTIONS,
+          ...(entry.customOptions || []),
+        ];
 
         return (
           <div
             key={idx}
             className="relative border border-red-200 bg-red-50 rounded-lg p-4"
           >
+            {/* Issues Section */}
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-700">
-                Issues
-              </span>
-              <div className="flex items-center gap-1">
-                {formData.currentProblemsEntries.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveProblemSection(idx)}
-                    className="inline-flex items-center text-red-600 hover:text-red-700 px-2 py-1 rounded"
-                    title="Remove this set"
-                  >
-                    <TrashIcon className="w-5 h-5" />
-                  </button>
-                )}
-              </div>
+              <span className="text-sm font-medium text-gray-700">Issues</span>
+             
             </div>
-            <div className="flex flex-wrap items-start gap-4 w-full">
 
-{/* BMI Section */}
-{bmiCategory && (
-  <div className="flex flex-col items-start bg-white border border-red-200 rounded-xl shadow-sm p-3 w-48">
-    <div className="text-xs font-medium text-gray-600 mb-1">
-      {formData.step2Titles?.bmi || "BMI"}
-    </div>
-    <label className="flex items-center">
-      <input
-        type="checkbox"
-        checked={true}
-        readOnly
-        className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
-      />
-      <span className="ml-2 text-xs text-gray-800">{bmiCategory}</span>
-    </label>
-  </div>
-)}
+      
+  
+            {/* Definitions Section  */}
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
 
-{/* Waist Section */}
-{waistCategory && (
-  <div className="flex flex-col items-start bg-white border border-red-200 rounded-xl shadow-sm p-3 w-48">
+              {/* BMI */}
+              {formData.bmiCategory && (
+                <div className="flex flex-col items-start bg-white border border-red-200 rounded-xl shadow-sm p-3">
+                  <div className="text-xs font-medium text-gray-600 mb-1">
+                    {formData.step2Titles?.bmi || "BMI"}
+                  </div>
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked
+                      readOnly
+                      className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                    />
+                    <span className="ml-2 text-xs text-gray-800">
+                      {formData.bmiCategory}
+                    </span>
+                  </label>
+                </div>
+              )}
+
+              {/* Waist */}
+              {formData.getwaistCategory && (
+  <div className="flex flex-col items-start bg-white border border-red-200 rounded-xl shadow-sm p-3">
     <div className="text-xs font-medium text-gray-600 mb-1">
       {formData.step2Titles?.waist || "Waist"}
     </div>
     <label className="flex items-center">
       <input
         type="checkbox"
-        checked={true}
-        readOnly
-        className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
-      />
-      <span className="ml-2 text-xs text-gray-800">{waistCategory}</span>
-    </label>
-  </div>
-)}
-
-{/* Vision Section */}
-{formData.visionCategory && (
-  <div className="flex flex-col items-start bg-white border border-red-200 rounded-xl shadow-sm p-3 w-48">
-    <div className="text-xs font-medium text-gray-600 mb-1">
-      {formData.step2Titles?.vision || "Vision"}
-    </div>
-    <label className="flex items-center">
-      <input
-        type="checkbox"
-        checked={true}
+        checked
         readOnly
         className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
       />
       <span className="ml-2 text-xs text-gray-800">
-        {formData.visionCategory}
-      </span>
-    </label>
-  </div>
-)}
-
-{/* Diabetes Section */}
-{diabetesCategory && (
-  <div className="flex flex-col items-start bg-white border border-red-200 rounded-xl shadow-sm p-3 w-48">
-    <div className="text-xs font-medium text-gray-600 mb-1">
-      {formData.step2Titles?.diabetes || "Diabetes Diagnosis"}
-    </div>
-    <label className="flex items-center">
-      <input
-        type="checkbox"
-        checked={true}
-        readOnly
-        className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
-      />
-      <span className="ml-2 text-xs text-gray-800">
-        {diabetesCategory}
+        {formData.getwaistCategory}
       </span>
     </label>
   </div>
 )}
 
 
-{/* Blood Pressure Section */}
-{getHypertensionCategory(formData.systolicBP, formData.diastolicBP) && (
-  <div className="flex flex-col items-start bg-white border border-red-200 rounded-xl shadow-sm p-3 w-56">
-    <div className="text-xs font-medium text-gray-600 mb-1">
-      {formData.step2Titles?.bp || "Blood Pressure"}
-    </div>
-    <label className="flex items-center">
-      <input
-        type="checkbox"
-        checked={true}
-        readOnly
-        className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
-      />
-      <span className="ml-2 text-xs text-gray-800">
-        {getHypertensionCategory(formData.systolicBP, formData.diastolicBP)}
-      </span>
-    </label>
-  </div>
-)}
+              {/* Vision */}
+              {formData.visionCategory && (
+                <div className="flex flex-col items-start bg-white border border-red-200 rounded-xl shadow-sm p-3">
+                  <div className="text-xs font-medium text-gray-600 mb-1">
+                    {formData.step2Titles?.vision || "Vision"}
+                  </div>
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked
+                      readOnly
+                      className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                    />
+                    <span className="ml-2 text-xs text-gray-800">
+                      {formData.visionCategory}
+                    </span>
+                  </label>
+                </div>
+              )}
+         
+              {/* Diabetes */}
+              {diabetesCategory && (
+                <div className="flex flex-col items-start bg-white border border-red-200 rounded-xl shadow-sm p-3">
+                  <div className="text-xs font-medium text-gray-600 mb-1">
+                    {formData.step2Titles?.diabetes || "Diabetes Diagnosis"}
+                  </div>
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked
+                      readOnly
+                      className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                    />
+                    <span className="ml-2 text-xs text-gray-800">
+                      {diabetesCategory}
+                    </span>
+                  </label>
+                </div>
+              )}
 
+              {/* Blood Pressure */}
+              {getHypertensionCategory(
+                formData.systolicBP,
+                formData.diastolicBP
+              ) && (
+                <div className="flex flex-col items-start bg-white border border-red-200 rounded-xl shadow-sm p-3">
+                  <div className="text-xs font-medium text-gray-600 mb-1">
+                    {formData.step2Titles?.bp || "Blood Pressure"}
+                  </div>
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked
+                      readOnly
+                      className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                    />
+                    <span className="ml-2 text-xs text-gray-800">
+                      {getHypertensionCategory(
+                        formData.systolicBP,
+                        formData.diastolicBP
+                      )}
+                    </span>
+                  </label>
+                </div>
+              )}
+            </div>
 
-
-
-</div>
-
-
+            {/* Additional Details*/}
             <div className="mt-3">
               <label className="block text-xs font-medium text-gray-700">
                 Additional details
@@ -2105,21 +1982,20 @@ const getHypertensionCategory = (systolic, diastolic) => {
                 placeholder="Describe current symptoms and issues..."
               />
             </div>
+
+            {/*  Validation Message*/}
+            {errors.currentProblems && (
+              <p className="text-xs text-red-600 flex items-center mt-2">
+                <ExclamationCircleIcon className="w-3 h-3 mr-1" />
+                {errors.currentProblems}
+              </p>
+            )}
           </div>
         );
       })}
-
-      {/* Validation message */}
-      {errors.currentProblems && (
-        <p className="text-xs text-red-600 flex items-center">
-          <ExclamationCircleIcon className="w-3 h-3 mr-1" />
-          {errors.currentProblems}
-        </p>
-      )}
     </div>
   </div>
 )}
->>>>>>> eeb9958 (Implement Definitions)
 
                 {/* Step 6: Screening Tests*/}
                 {currentStep === 6 && (
@@ -2386,7 +2262,7 @@ const getHypertensionCategory = (systolic, diastolic) => {
           stroke="currentColor"
           viewBox="0 0 24 24"
         >
-          <path
+            <path
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeWidth={2}
@@ -2400,6 +2276,7 @@ const getHypertensionCategory = (systolic, diastolic) => {
             </form>
           </div>
         </div>
+        
 
         <AppFooter />
       </main>

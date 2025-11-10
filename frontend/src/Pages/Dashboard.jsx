@@ -43,6 +43,7 @@ const StatCard = ({ icon, title, value, sub }) => {
 // Red promo banner
 const PromoBanner = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
+  
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -62,33 +63,44 @@ const PromoBanner = () => {
   });
 
   return (
-    <div className="relative overflow-hidden rounded-xl p-6 md:p-7 lg:p-8 bg-gradient-to-r from-red-500 to-red-600 text-white shadow-sm">
-      <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white/10 blur-2xl" />
-      <div className="absolute -bottom-12 -left-12 w-48 h-48 rounded-full bg-white/10 blur-3xl" />
-      <div className="relative z-10 flex items-center">
-        <div className="flex-1">
-          <div className="text-2xl md:text-3xl font-bold leading-tight">
-            Welcome back!
-          </div>
-          <div className="mt-2 text-sm text-white/90">
-            We hope you have a great day. The latest data is here for you.
-          </div>
-          <div className="mt-2 flex items-center text-sm text-red-50">
-            <CalendarDaysIcon className="w-4 h-4 mr-1 opacity-90" />
-            {formattedDate} · {formattedTime}
-          </div>
-        </div>
-        <div className="hidden md:block ml-6">
-          <div className="w-40 h-40 md:w-48 md:h-48 rounded-xl bg-white/15 backdrop-blur-sm border border-white/20 flex items-center justify-center overflow-hidden">
-            <img
-              src="/doctor.jpg"
-              alt="Doctor"
-              className="w-full h-full object-cover"
-            />
+    <div className="w-full flex justify-between items-start mb-6">
+      {/* Promo Banner */}
+      <div className="flex-1">
+        <div className="relative overflow-hidden rounded-xl p-6 md:p-7 lg:p-8 bg-gradient-to-r from-red-500 to-red-600 text-white shadow-sm">
+          <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white/10 blur-2xl" />
+          <div className="absolute -bottom-12 -left-12 w-48 h-48 rounded-full bg-white/10 blur-3xl" />
+          <div className="relative z-10 flex items-center">
+            <div className="flex-1">
+              <div className="text-2xl md:text-3xl font-bold leading-tight">
+                Welcome back!
+              </div>
+              <div className="mt-2 text-sm text-white/90">
+                We hope you have a great day. The latest data is here for you.
+              </div>
+              <div className="mt-2 flex items-center text-sm text-red-50">
+                <CalendarDaysIcon className="w-4 h-4 mr-1 opacity-90" />
+                {formattedDate} · {formattedTime}
+              </div>
+            </div>
+            <div className="hidden md:block ml-6">
+              <div className="w-40 h-40 md:w-48 md:h-48 rounded-xl bg-white/15 backdrop-blur-sm border border-white/20 flex items-center justify-center overflow-hidden">
+                <img
+                  src="/doctor.jpg"
+                  alt="Doctor"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>
+
+      
     </div>
+      
+   
+    
+    
   );
 };
 
@@ -107,8 +119,36 @@ const LineChartCard = () => {
             : "http://localhost:5000/patientmedicalrecords/stats/yearly";
 
         const res = await axios.get(url);
-        const data = res.data.data || [];
+        let data = res.data.data || [];
 
+        // Show only last month + current month when view = monthly
+        if (selectedView === "monthly" && data.length > 0) {
+          const now = new Date();
+          const currentMonth = now.getMonth(); // 0-11
+          const currentYear = now.getFullYear();
+          const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+          const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+
+          // Convert month names (e.g., "Jan", "Feb") to numbers for comparison
+          const monthMap = {
+            Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+            Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
+          };
+
+          // Filter data for last and current month
+          data = data.filter((d) => {
+            if (!d.month) return false;
+            const [mon, yearStr] = d.month.split(" ");
+            const monthNum = monthMap[mon];
+            const yearNum = parseInt(yearStr);
+            return (
+              (monthNum === currentMonth && yearNum === currentYear) ||
+              (monthNum === lastMonth && yearNum === lastMonthYear)
+            );
+          });
+        }
+
+        // Update chart data
         setChartData({
           labels: data.map((d) =>
             selectedView === "monthly" ? d.month : d.year
@@ -135,7 +175,6 @@ const LineChartCard = () => {
     const padY = 24;
     const innerW = w - padX * 2;
     const innerH = h - padY * 2;
-    
 
     const maxY = Math.max(...counts) * 1.1 || 1;
     const stepX = innerW / (counts.length - 1 || 1);
@@ -146,16 +185,14 @@ const LineChartCard = () => {
       return { x, y, val };
     });
 
-  
     const d = pts
       .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x},${p.y}`)
       .join(" ");
-    const area = `${d} L ${pts[pts.length - 1].x},${h - padY} L ${pts[0].x},${
-      h - padY
-    } Z`;
+    const area = `${d} L ${pts[pts.length - 1].x},${h - padY} L ${pts[0].x},${h - padY} Z`;
 
     return { pathD: d, areaD: area, points: pts };
   }, [chartData]);
+
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -305,7 +342,7 @@ const DoctorsListCard = () => {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden w-full h-[400px]">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden w-full h-[700px]">
       {/* HEADER */}
       <div className="px-5 py-4 bg-red-500 text-white">
         <div className="text-base font-semibold">Patients List</div>
@@ -326,8 +363,7 @@ const DoctorsListCard = () => {
       </div>
 
       {/* LIST */}
-      
-      <div className="divide-y divide-gray-100 overflow-y-auto h-[300px]">
+      <div className="divide-y divide-gray-100 overflow-y-auto h-[600px]">
         {filteredList.length === 0 ? (
           <div className="text-center text-gray-500 text-sm py-10">
             No patients found
@@ -385,6 +421,7 @@ function Dashboard() {
   const [staffCount, setStaffCount] = useState(0);
   const [todayCount, setTodayCount] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  
 
   useEffect(() => {
     const fetchCount = async () => {
@@ -432,86 +469,91 @@ function Dashboard() {
 
   return (
     <div className="flex h-screen bg-gray-100 font-sans">
+      {/* Sidebar */}
       <AppSidebar
         isSidebarOpen={isSidebarOpen}
         onCloseSidebar={closeSidebar}
         currentPage="Dashboard"
       />
-      
+  
+      {/* Main Content */}
       <main className="flex-1 flex flex-col overflow-hidden">
         <AppHeader onMenuToggle={toggleSidebar} isSidebarOpen={isSidebarOpen} />
-
+  
         <div className="flex-1 overflow-y-auto p-4 lg:p-6">
-          {/* Page title and "Add Patient" button */}
-          <div className="mb-4 flex items-center justify-between">
-            <h1 className="text-2xl font-semibold text-gray-800">Dashboard</h1>
-            {/* The Link component handles navigation without a full page reload */}
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="bg-red-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-red-700 transition flex items-center"
-              >
-                <UserPlusIcon className="w-5 h-5 mr-2" />
-                Register Patient
-              </button>
-
-              {/* Modal (RegisterPatient.jsx) */}
-              {isModalOpen && (
-                <RegisterPatient onClose={() => setIsModalOpen(false)} />
-              )}
-
-              <Link
-                to="/AddNewPatient"
-                className="bg-red-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-red-700 transition flex items-center"
-              >
-                <UserPlusIcon className="w-5 h-5 mr-2" />
-                Add Patient
-              </Link>
-            </div>
-          </div>
-
-          {/* Top row: Promo + Stats */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Top Row: Promo Banner + Right Side Buttons */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+            {/* Promo Banner */}
             <div className="lg:col-span-2">
               <PromoBanner />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <StatCard
-                icon={BuildingOffice2Icon}
-                value={loading ? "..." : totalPatients}
-                title="Total Patients"
-                sub={error ? "Error loading" : "Updated today"}
-              />
-              <StatCard
-                icon={UserGroupIcon}
-                value={todayCount}
-                title="New Patients"
-                sub="Today checkouts"
-              />
-              <StatCard
-                icon={UserGroupIcon}
-                value={staffCount}
-                title="Staff"
-                sub="All units"
-              />
-            </div>
-          </div>
-
-          {/* Middle row: Chart + Doctors list */}
-          <div className="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="lg:col-span-2">
+  
+              {/* Small Stats Cards below Promo Banner */}
+              <div className="mt-4 grid grid-cols-3 gap-4">
+                <StatCard
+                  icon={BuildingOffice2Icon}
+                  value={loading ? "..." : totalPatients}
+                  title="Total Patients"
+                  sub={error ? "Error loading" : "Updated today"}
+                />
+                <StatCard
+                  icon={UserGroupIcon}
+                  value={todayCount}
+                  title="New Patients"
+                  sub="Today checkouts"
+                />
+                <StatCard
+                  icon={UserGroupIcon}
+                  value={staffCount}
+                  title="Staff"
+                  sub="All units"
+                />
+              </div>
+              {/* Middle Row: Chart */}
+          <div className="mt-1 grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-4">
               <LineChartCard />
             </div>
-            <div className="lg:col-span-1">
+          </div>
+            </div>
+  
+            {/* Right Side: Buttons + Doctor List */}
+            <div className="flex flex-col gap-4">
+              {/* Buttons at the top-right */}
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  className="bg-red-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-red-700 transition flex items-center"
+                >
+                  <UserPlusIcon className="w-5 h-5 mr-2" />
+                  Register Patient
+                </button>
+  
+                {isModalOpen && (
+                  <RegisterPatient onClose={() => setIsModalOpen(false)} />
+                )}
+  
+                <Link
+                  to="/AddNewPatient"
+                  className="bg-red-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-red-700 transition flex items-center"
+                >
+                  <UserPlusIcon className="w-5 h-5 mr-2" />
+                  Add New Patient
+                </Link>
+              </div>
+  
+              {/* Doctor List Card below buttons */}
               <DoctorsListCard />
             </div>
           </div>
+  
+          
         </div>
-
+  
         <AppFooter />
       </main>
     </div>
   );
+  
 }
 
 export default Dashboard;

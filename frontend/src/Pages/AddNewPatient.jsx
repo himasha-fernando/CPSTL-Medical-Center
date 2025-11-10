@@ -1729,7 +1729,7 @@ const getHypertensionCategory = (systolic, diastolic) => {
                     </div>
                   </div>
                 )}
-
+            
                 {/* Step 4: Lifestyle & Habits */}
                 {currentStep === 4 && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
@@ -1737,33 +1737,132 @@ const getHypertensionCategory = (systolic, diastolic) => {
                       <SunIcon className="w-6 h-6 mr-2 text-red-500" />
                       Lifestyle & Habits
                     </h1>
-                    <div>
-                      <label
-                        htmlFor="alcoholConsumption"
-                        className="block text-xs font-medium text-gray-700"
-                      >
-                        Alcohol Consumption
-                      </label>
-                      <textarea
-                        id="alcoholConsumption"
-                        name="alcoholConsumption"
-                        rows="3"
-                        value={formData.alcoholConsumption}
-                        onChange={handleChange}
-                        placeholder="Describe frequency and amount..."
-                        className={`mt-1 block w-full border rounded-md shadow-sm p-1 focus:ring-2 focus:ring-red-500 ${
-                          errors.alcoholConsumption
-                            ? "border-red-500 bg-red-50"
-                            : "border-gray-300"
-                        }`}
-                      ></textarea>
-                      {errors.alcoholConsumption && (
-                        <p className="mt-1 text-xs text-red-500 flex items-center">
-                          <ExclamationCircleIcon className="w-3 h-3 mr-1" />
-                          {errors.alcoholConsumption}
-                        </p>
-                      )}
-                    </div>
+
+                    {/* Alcohol Consumption Section */}
+<div className="bg-white shadow-md rounded-xl p-6 border border-gray-100 mt-6">
+  <h2 className="block text-xs font-medium text-gray-700">
+    Alcohol Consumption
+  </h2>
+
+  <div className="grid grid-cols-2 gap-4">
+    {/* Do you consume alcohol? */}
+    <div>
+      <label
+        htmlFor="consumeAlcohol"
+        className="block text-sm font-medium text-gray-700 mb-1"
+      >
+        Do you consume alcohol?
+      </label>
+      <select
+        id="consumeAlcohol"
+        name="consumeAlcohol"
+        value={formData.consumeAlcohol}
+        onChange={handleChange}
+        className={`block w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+          errors.consumeAlcohol ? "border-red-500 bg-red-50" : "border-gray-300"
+        }`}
+      >
+        <option value="">Select</option>
+        <option value="Yes">Yes</option>
+        <option value="No">No</option>
+      </select>
+      {errors.consumeAlcohol && (
+        <p className="mt-1 text-xs text-red-500 flex items-center">
+          <ExclamationCircleIcon className="w-3 h-3 mr-1" />
+          {errors.consumeAlcohol}
+        </p>
+      )}
+    </div>
+
+    {/* Drinks per week */}
+    <div>
+      <label
+        htmlFor="drinksPerWeek"
+        className="block text-sm font-medium text-gray-700 mb-1"
+      >
+        Drinks per week (approx.)
+      </label>
+      <input
+        type="text"
+        id="drinksPerWeek"
+        name="drinksPerWeek"
+        value={formData.drinksPerWeek}
+        onChange={handleChange}
+        placeholder="e.g. 5"
+        className={`block w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+          errors.drinksPerWeek ? "border-red-500 bg-red-50" : "border-gray-300"
+        }`}
+      />
+    </div>
+
+    {/* Type of Alcohol */}
+    <div>
+      <label
+        htmlFor="typeOfAlcohol"
+        className="block text-sm font-medium text-gray-700 mb-1"
+      >
+        Type of Alcohol
+      </label>
+      <select
+        id="typeOfAlcohol"
+        name="typeOfAlcohol"
+        value={formData.typeOfAlcohol}
+        onChange={handleChange}
+        className={`block w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+          errors.typeOfAlcohol ? "border-red-500 bg-red-50" : "border-gray-300"
+        }`}
+      >
+        <option value="">Select type</option>
+        <option value="Beer">Beer</option>
+        <option value="Wine">Wine</option>
+        <option value="Spirits">Spirits</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+
+    {/* Duration of Habit */}
+    <div>
+      <label
+        htmlFor="durationOfHabit"
+        className="block text-sm font-medium text-gray-700 mb-1"
+      >
+        Duration of Habit
+      </label>
+      <input
+        type="text"
+        id="durationOfHabit"
+        name="durationOfHabit"
+        value={formData.durationOfHabit}
+        onChange={handleChange}
+        placeholder="e.g. 5 years"
+        className={`block w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+          errors.durationOfHabit ? "border-red-500 bg-red-50" : "border-gray-300"
+        }`}
+      />
+    </div>
+  </div>
+
+  {/* Comments */}
+  <div className="mt-4">
+    <label
+      htmlFor="alcoholComments"
+      className="block text-sm font-medium text-gray-700 mb-1"
+    >
+      Comments
+    </label>
+    <textarea
+      id="alcoholComments"
+      name="alcoholComments"
+      rows="3"
+      value={formData.alcoholComments}
+      onChange={handleChange}
+      placeholder="Any remarks..."
+      className={`block w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+        errors.alcoholComments ? "border-red-500 bg-red-50" : "border-gray-300"
+      }`}
+    ></textarea>
+  </div>
+</div>
                     <div>
   <label
     htmlFor="smokingHabits"

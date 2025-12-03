@@ -86,6 +86,56 @@ const getAbsentPatientCountByDepartment = (req, res) => {
     res.json(results);
   });
 };
+
+// Search patient
+const searchPatient = (req, res) => {
+  const { registrationNo, epfNo } = req.query;
+
+  const field = registrationNo ? "registrationNo" : epfNo ? "epfNo" : null;
+  let value = registrationNo || epfNo;
+
+  if (!field || !value) {
+    return res.status(400).json({ message: "Provide registrationNo or epfNo" });
+  }
+
+  value = value.trim(); // trim spaces
+
+  patientModel.findPatientByField(field, value, (err, results) => {
+    if (err) {
+      console.error("DB error:", err);
+      return res.status(500).json({ message: "Server error" });
+    }
+
+    if (!results || results.length === 0) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    res.json(results[0]);
+  });
+};
+
+// Check if EPF exists
+const checkEPF = (req, res) => {
+  const epfNo = req.params.epfNo;
+
+  if (!epfNo || epfNo.trim() === "") {
+    return res.status(400).json({ message: "EPF No is required" });
+  }
+
+  patientModel.checkEPFExists(epfNo, (err, results) => {
+    if (err) {
+      console.error("Error checking EPF:", err);
+      return res.status(500).json({ message: "Server error" });
+    }
+
+    if (results.length > 0) {
+      return res.json({ exists: true, patientId: results[0].id });
+    } else {
+      return res.json({ exists: false });
+    }
+  });
+};
+
 module.exports = {
   createPatient,
   getAllPatients,
@@ -93,5 +143,7 @@ module.exports = {
   deletePatient,
   getPatientCount,
   checkPatient,
-  getAbsentPatientCountByDepartment
+  getAbsentPatientCountByDepartment,
+  searchPatient,
+  checkEPF,
 };

@@ -1,13 +1,12 @@
-// src/components/NotificationPanel.jsx
 import React from "react";
 
-// The 'onUnreadCountChange' prop has been removed as it was not being used.
+// Placeholder for notifications
 const NotificationPanel = ({ isOpen, onClose, onNotificationRead }) => {
   if (!isOpen) {
     return null;
   }
 
-  // Placeholder for notifications. In a real app, this would come from state or props.
+  // Placeholder for notifications
   const notifications = [
     { id: 1, message: "New patient registered.", type: "info" },
     { id: 2, message: "Appointment reminder for John Doe.", type: "warning" },

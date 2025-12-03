@@ -1,12 +1,16 @@
 import React, { useState } from "react";
 import axios from "axios";
-import { ExclamationCircleIcon, UserCircleIcon } from "@heroicons/react/24/outline";
+import {
+  ExclamationCircleIcon,
+  UserCircleIcon,
+} from "@heroicons/react/24/outline";
 
 function RegisterPatient({ onClose }) {
   const [formData, setFormData] = useState({
     registrationNo: "",
     name: "",
     epfNo: "",
+    department: "",
     contactNo: "",
     gender: "",
     dateOfBirth: "",
@@ -23,12 +27,15 @@ function RegisterPatient({ onClose }) {
 
   const validate = () => {
     const newErrors = {};
-    if (!formData.registrationNo) newErrors.registrationNo = "Registration No. is required";
+    if (!formData.registrationNo)
+      newErrors.registrationNo = "Registration No. is required";
     if (!formData.name) newErrors.name = "Name is required";
     if (!formData.epfNo) newErrors.epfNo = "EPF No. is required";
+    if (!formData.department) newErrors.department = "Department is required";
     if (!formData.contactNo) newErrors.contactNo = "Contact No. is required";
     if (!formData.gender) newErrors.gender = "Gender is required";
-    if (!formData.dateOfBirth) newErrors.dateOfBirth = "Date of Birth is required";
+    if (!formData.dateOfBirth)
+      newErrors.dateOfBirth = "Date of Birth is required";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -44,13 +51,14 @@ function RegisterPatient({ onClose }) {
         registrationNo: "",
         name: "",
         epfNo: "",
+        department: "",
         contactNo: "",
         gender: "",
         dateOfBirth: "",
       });
       setTimeout(() => {
         setMessage("");
-        onClose(); // close modal after success
+        onClose();
       }, 1000);
     } catch (error) {
       setMessage("Error registering patient. Please try again.");
@@ -59,8 +67,8 @@ function RegisterPatient({ onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white rounded-xl shadow-lg w-full max-w-lg p-8 relative">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-[9999]">
+      <div className="bg-white p-6 rounded-lg shadow-xl w-[90%] max-w-2xl relative z-[10000]">
         {/* Close button */}
         <button
           onClick={onClose}
@@ -86,7 +94,9 @@ function RegisterPatient({ onClose }) {
               value={formData.registrationNo}
               onChange={handleChange}
               className={`mt-1 block w-full p-2 border rounded-md ${
-                errors.registrationNo ? "border-red-500 bg-red-50" : "border-gray-300"
+                errors.registrationNo
+                  ? "border-red-500 bg-red-50"
+                  : "border-gray-300"
               }`}
             />
             {errors.registrationNo && (
@@ -141,6 +151,78 @@ function RegisterPatient({ onClose }) {
             )}
           </div>
 
+          {/* Department */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Department <span className="text-red-500">*</span>
+            </label>
+            <select
+              name="department"
+              value={formData.department || ""}
+              onChange={handleChange}
+              className={`mt-1 block w-full p-2 border rounded-md ${
+                errors.department
+                  ? "border-red-500 bg-red-50"
+                  : "border-gray-300"
+              }`}
+            >
+              <option value="">Select Department</option>
+              {[
+                "ANURADHAPURA HOLIDAY",
+                "AUTO MOBILE",
+                "BULK MOVE. & BULK PR",
+                "DGM(ENG & SS)",
+                "DGM(FINANCE)",
+                "DGM(HR & ADMIN)",
+                "DGM(O)",
+                "DISTRIBUTION",
+                "ENGINEERING - DEVE.",
+                "FIRE & SAFETY",
+                "FINANCE",
+                "INFORMATION SYSTEMS",
+                "INTERNAL AUDIT",
+                "INVESTIGATION",
+                "IRD VAUNIYA",
+                "KANDY HOLIDAY HOME",
+                "KATARAGAMA HOLIDAY",
+                "KKS",
+                "LEGAL",
+                "LBD ANURADHAPURA",
+                "LBD BADULLA",
+                "LBD BATTICALOA",
+                "LBD GALLE",
+                "LBD HAPUTALE",
+                "LBD KOTAGALA",
+                "LBD KURUNEGELA",
+                "LBD MATARA",
+                "LBD PERADENIYA",
+                "LBD SARASAVI UYANA",
+                "MAIN LABORATORY",
+                "MEDICAL CENTER",
+                "MUTHURAJWELA TERM",
+                "NUWARAELIYA HOLIDAY",
+                "OIL FACILITIES - OFF",
+                "PERSONNEL",
+                "PREMISES & ENGG. SER",
+                "PROCUREMENT",
+                "SECRETARIAT",
+                "SECURITY",
+                "STORES",
+                "TRAINING",
+              ].map((dept) => (
+                <option key={dept} value={dept}>
+                  {dept}
+                </option>
+              ))}
+            </select>
+            {errors.department && (
+              <p className="text-xs text-red-500 mt-1 flex items-center">
+                <ExclamationCircleIcon className="w-3 h-3 mr-1" />
+                {errors.department}
+              </p>
+            )}
+          </div>
+
           {/* Contact No */}
           <div>
             <label className="block text-sm font-medium text-gray-700">
@@ -152,7 +234,9 @@ function RegisterPatient({ onClose }) {
               value={formData.contactNo}
               onChange={handleChange}
               className={`mt-1 block w-full p-2 border rounded-md ${
-                errors.contactNo ? "border-red-500 bg-red-50" : "border-gray-300"
+                errors.contactNo
+                  ? "border-red-500 bg-red-50"
+                  : "border-gray-300"
               }`}
             />
             {errors.contactNo && (
@@ -165,43 +249,43 @@ function RegisterPatient({ onClose }) {
 
           {/* Gender */}
           <div>
-  <label className="block text-sm font-medium text-gray-700">
-    Gender <span className="text-red-500">*</span>
-  </label>
+            <label className="block text-sm font-medium text-gray-700">
+              Gender <span className="text-red-500">*</span>
+            </label>
 
-  <div className="mt-2 flex items-center space-x-6">
-    <label className="flex items-center">
-      <input
-        type="radio"
-        name="gender"
-        value="Male"
-        checked={formData.gender === "Male"}
-        onChange={handleChange}
-        className="h-4 w-4 text-red-600 border-gray-300 focus:ring-red-500"
-      />
-      <span className="ml-2 text-gray-700">Male</span>
-    </label>
+            <div className="mt-2 flex items-center space-x-6">
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="gender"
+                  value="Male"
+                  checked={formData.gender === "Male"}
+                  onChange={handleChange}
+                  className="h-4 w-4 text-red-600 border-gray-300 focus:ring-red-500"
+                />
+                <span className="ml-2 text-gray-700">Male</span>
+              </label>
 
-    <label className="flex items-center">
-      <input
-        type="radio"
-        name="gender"
-        value="Female"
-        checked={formData.gender === "Female"}
-        onChange={handleChange}
-        className="h-4 w-4 text-red-600 border-gray-300 focus:ring-red-500"
-      />
-      <span className="ml-2 text-gray-700">Female</span>
-    </label>
-  </div>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="gender"
+                  value="Female"
+                  checked={formData.gender === "Female"}
+                  onChange={handleChange}
+                  className="h-4 w-4 text-red-600 border-gray-300 focus:ring-red-500"
+                />
+                <span className="ml-2 text-gray-700">Female</span>
+              </label>
+            </div>
 
-  {errors.gender && (
-    <p className="text-xs text-red-500 mt-1 flex items-center">
-      <ExclamationCircleIcon className="w-3 h-3 mr-1" />
-      {errors.gender}
-    </p>
-  )}
-</div>
+            {errors.gender && (
+              <p className="text-xs text-red-500 mt-1 flex items-center">
+                <ExclamationCircleIcon className="w-3 h-3 mr-1" />
+                {errors.gender}
+              </p>
+            )}
+          </div>
 
           {/* DOB */}
           <div>
@@ -214,7 +298,9 @@ function RegisterPatient({ onClose }) {
               value={formData.dateOfBirth}
               onChange={handleChange}
               className={`mt-1 block w-full p-2 border rounded-md ${
-                errors.dateOfBirth ? "border-red-500 bg-red-50" : "border-gray-300"
+                errors.dateOfBirth
+                  ? "border-red-500 bg-red-50"
+                  : "border-gray-300"
               }`}
             />
             {errors.dateOfBirth && (

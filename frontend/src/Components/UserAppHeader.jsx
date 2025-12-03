@@ -1,4 +1,3 @@
-// frontend/src/components/AppHeader.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Bell, Menu, X } from "lucide-react";
@@ -112,7 +111,7 @@ const AppHeader = ({ onMenuToggle, isSidebarOpen }) => {
 
   const handleProfileClick = () => {
     setIsDropdownOpen(false);
-    navigate("/ProfilePage");
+    navigate("/StaffProfilePage");
   };
 
   const profileImage = userData?.profile_image || defaultPublicProfileIcon;
@@ -131,39 +130,7 @@ const AppHeader = ({ onMenuToggle, isSidebarOpen }) => {
           )}
         </button>
       </div>
-      <div className="flex justify-end gap-4 w-full mt-4">
-        {/* Register Patient Button */}
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="relative overflow-hidden px-6 py-2.5 rounded-2xl font-semibold text-sm text-red-600 
-               bg-white border-2 border-red-500 shadow-md hover:shadow-lg 
-               hover:bg-red-600 hover:text-white hover:scale-105 active:scale-95 
-               transition-all duration-300 ease-in-out flex items-center group"
-        >
-          <UserPlusIcon className="w-5 h-5 mr-2 text-red-600 group-hover:text-white transition-colors duration-300" />
-          <span className="relative z-10">Register Patient</span>
-        </button>
-
-        {isModalOpen && (
-          <RegisterPatient onClose={() => setIsModalOpen(false)} />
-        )}
-
-        {/* Add New Patient Button */}
-        <button
-          onClick={() =>
-            navigate("/AddNewPatient", {
-              state: { isNewPatient: true },
-            })
-          }
-          className="relative overflow-hidden px-6 py-2.5 rounded-2xl font-semibold text-sm text-red-600 
-             bg-white border-2 border-red-500 shadow-md hover:shadow-lg 
-             hover:bg-red-600 hover:text-white hover:scale-105 active:scale-95 
-             transition-all duration-300 ease-in-out flex items-center group"
-        >
-          <UserPlusIcon className="w-5 h-5 mr-2 text-red-600 group-hover:text-white transition-colors duration-300" />
-          <span className="relative z-10">Add New Patient</span>
-        </button>
-      </div>
+      <div className="flex justify-end gap-4 w-full mt-4"></div>
 
       <div className="flex items-center space-x-4">
         {/* Notifications */}

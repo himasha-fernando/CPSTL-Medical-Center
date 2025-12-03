@@ -8,6 +8,7 @@ const {
     deleteStaffById,
     updateStaffById,
     getStaffCount,
+    getAllUsers
   } = require("../Controllers/staffController");
 
 
@@ -16,6 +17,9 @@ router.post("/add",addStaff);
 
 // Get all staff
 router.get("/", getAllStaff);
+
+// Get all users
+router.get("/users", getAllUsers);
 
 // Get staff count
 router.get("/count", getStaffCount);

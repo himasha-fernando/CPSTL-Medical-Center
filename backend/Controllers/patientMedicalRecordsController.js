@@ -107,7 +107,8 @@ const getTodayPatientCount = (req, res) => {
 // Get monthly stats
 const getMonthlyPatientStats = (req, res) => {
   recordModel.getMonthlyPatientStats((err, results) => {
-    if (err) return res.status(500).json({ success: false, error: err.message });
+    if (err)
+      return res.status(500).json({ success: false, error: err.message });
     res.json({ success: true, data: results });
   });
 };
@@ -115,7 +116,8 @@ const getMonthlyPatientStats = (req, res) => {
 // Get yearly stats
 const getYearlyPatientStats = (req, res) => {
   recordModel.getYearlyPatientStats((err, results) => {
-    if (err) return res.status(500).json({ success: false, error: err.message });
+    if (err)
+      return res.status(500).json({ success: false, error: err.message });
     res.json({ success: true, data: results });
   });
 };

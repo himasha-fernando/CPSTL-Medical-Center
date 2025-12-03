@@ -44,7 +44,7 @@ router.get("/:patientId/monthly", getPatientMonthlyMetrics);
 // Fetch yearly metrics for a patient
 router.get("/:patientId/yearly", getPatientYearlyMetrics);
 
-
+// Fetch count of records for a patient
 router.get("/count/:patientId", (req, res) => {
   const { patientId } = req.params;
   const sql = "SELECT COUNT(*) AS count FROM patientmedicalrecords WHERE patient_id = ?";

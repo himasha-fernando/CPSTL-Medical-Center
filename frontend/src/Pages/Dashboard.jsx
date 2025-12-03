@@ -1,6 +1,5 @@
-// src/Pages/Dashboard.jsx
 import React, { useMemo, useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 
 import axios from "axios";
 
@@ -43,7 +42,6 @@ const StatCard = ({ icon, title, value, sub }) => {
 // Red promo banner
 const PromoBanner = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
-  
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -94,22 +92,16 @@ const PromoBanner = () => {
           </div>
         </div>
       </div>
-
-      
     </div>
-      
-   
-    
-    
   );
 };
 
 // Simple responsive SVG line chart
 const LineChartCard = () => {
-  const [selectedView, setSelectedView] = useState("monthly"); // 'monthly' or 'yearly'
+  const [selectedView, setSelectedView] = useState("monthly");
   const [chartData, setChartData] = useState({ labels: [], counts: [] });
 
-  // Fetch data from backend whenever view changes
+  // Fetch stats
   useEffect(() => {
     const fetchStats = async () => {
       try {
@@ -127,12 +119,23 @@ const LineChartCard = () => {
           const currentMonth = now.getMonth(); // 0-11
           const currentYear = now.getFullYear();
           const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-          const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+          const lastMonthYear =
+            currentMonth === 0 ? currentYear - 1 : currentYear;
 
-          // Convert month names (e.g., "Jan", "Feb") to numbers for comparison
+          // Convert month names to numbers for comparison
           const monthMap = {
-            Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
-            Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
+            Jan: 0,
+            Feb: 1,
+            Mar: 2,
+            Apr: 3,
+            May: 4,
+            Jun: 5,
+            Jul: 6,
+            Aug: 7,
+            Sep: 8,
+            Oct: 9,
+            Nov: 10,
+            Dec: 11,
           };
 
           // Filter data for last and current month
@@ -188,15 +191,16 @@ const LineChartCard = () => {
     const d = pts
       .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x},${p.y}`)
       .join(" ");
-    const area = `${d} L ${pts[pts.length - 1].x},${h - padY} L ${pts[0].x},${h - padY} Z`;
+    const area = `${d} L ${pts[pts.length - 1].x},${h - padY} L ${pts[0].x},${
+      h - padY
+    } Z`;
 
     return { pathD: d, areaD: area, points: pts };
   }, [chartData]);
 
-
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-      <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden h-full">
+      <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between ">
         <div>
           <div className="text-base font-semibold text-gray-800">
             Medical center Visits Statistics
@@ -320,29 +324,197 @@ const DoctorsListCard = () => {
     item.epf?.toLowerCase().includes(searchEPF.toLowerCase())
   );
 
+  //Calculate age from DOB
+  const calculateAge = (dob) => {
+    if (!dob) return null;
+    const birthDate = new Date(dob);
+    if (isNaN(birthDate.getTime())) return null;
+
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (
+      monthDiff < 0 ||
+      (monthDiff === 0 && today.getDate() < birthDate.getDate())
+    ) {
+      age--;
+    }
+    return age;
+  };
+
+  // Map alcohol summary to form
+  const mapAlcoholSummaryToForm = (summary) => {
+    if (!summary)
+      return {
+        consumeAlcohol: "No",
+        typeOfAlcohol: "",
+        drinksPerWeek: 0,
+        alcoholComments: "",
+      };
+    const lower = summary.toLowerCase();
+    if (lower.includes("no alcohol") || lower.includes("non-drinker"))
+      return {
+        consumeAlcohol: "No",
+        typeOfAlcohol: "",
+        drinksPerWeek: 0,
+        alcoholComments: summary,
+      };
+    return {
+      consumeAlcohol: "Yes",
+      typeOfAlcohol: "",
+      drinksPerWeek: 0,
+      alcoholComments: summary,
+    };
+  };
+
+  // Map smoking summary to habit
+  const mapSmokingSummaryToHabit = (summary) => {
+    if (!summary) return "";
+    const lower = summary.toLowerCase();
+    if (lower.includes("regular")) return "Regular";
+    if (lower.includes("occasional")) return "Occasional";
+    if (lower.includes("non-smoker") || lower.includes("no smoking"))
+      return "No";
+    return "";
+  };
+
+  // Parse currentProblems
+  const parseCurrentProblems = (currentProblems) => {
+    const obj = {
+      bmiCategory: "",
+      getwaistCategory: "",
+      visionCategory: "",
+      diabetesCategory: "",
+      bpCategory: "",
+      consumeAlcohol: "",
+      alcoholSummary: "",
+      smokingHabits: "",
+      smokingSummary: "",
+      otherIssues: "",
+    };
+
+    if (!currentProblems) return obj;
+
+    // If currentProblems is an object
+    if (typeof currentProblems === "object") {
+      obj.bmiCategory = currentProblems.BMI || currentProblems.bmi || "";
+      obj.getwaistCategory =
+        currentProblems.Waist || currentProblems.waist || "";
+      obj.visionCategory =
+        currentProblems.Vision || currentProblems.vision || "";
+      obj.diabetesCategory =
+        currentProblems.Diabetes || currentProblems.diabetes || "";
+      obj.bpCategory =
+        currentProblems["Blood Pressure"] ||
+        currentProblems.bloodPressure ||
+        "";
+
+      // Smoking
+      obj.smokingSummary =
+        currentProblems.Smoking || currentProblems.smoking || "";
+      obj.smokingHabits = mapSmokingSummaryToHabit(obj.smokingSummary);
+
+      // Alcohol
+      const alcoholMapped = mapAlcoholSummaryToForm(
+        currentProblems.Alcohol || currentProblems.alcohol || ""
+      );
+      obj.consumeAlcohol = alcoholMapped.consumeAlcohol;
+      obj.alcoholSummary = alcoholMapped.alcoholComments;
+
+      return obj;
+    }
+
+    // If currentProblems is a string
+    if (typeof currentProblems === "string") {
+      const pairs = currentProblems.split(";");
+
+      pairs.forEach((entry) => {
+        const [key, val] = entry.split(":").map((x) => x.trim());
+        if (!key || !val) return;
+
+        switch (key.toLowerCase()) {
+          case "bmi":
+            obj.bmiCategory = val;
+            break;
+          case "waist":
+            obj.getwaistCategory = val;
+            break;
+          case "vision":
+            obj.visionCategory = val;
+            break;
+          case "diabetes":
+            obj.diabetesCategory = val;
+            break;
+          case "blood pressure":
+            obj.bpCategory = val;
+            break;
+
+          case "smoking":
+            obj.smokingSummary = val;
+            obj.smokingHabits = mapSmokingSummaryToHabit(val);
+            break;
+
+          case "alcohol":
+            const alcoholData = mapAlcoholSummaryToForm(val);
+            obj.consumeAlcohol = alcoholData.consumeAlcohol;
+            obj.alcoholSummary = alcoholData.alcoholComments;
+            break;
+
+          default:
+            obj.otherIssues += `${key}: ${val}; `;
+        }
+      });
+
+      return obj;
+    }
+
+    return obj;
+  };
+
+  // Enhanced handleProgressClick
   const handleProgressClick = async (patient) => {
     try {
+      const patientId = patient._id || patient.id;
+
       const res = await axios.get(
-        `http://localhost:5000/patientmedicalrecords/count/${patient.id}`
+        `http://localhost:5000/patientmedicalrecords/${patientId}/latest`
       );
 
-      const recordCount = res.data.count;
+      let latestRecord = res.data?.latestRecord || {};
 
-      if (recordCount === 0) {
-        // New patient (no medical record yet)
-        navigate("/AddNewPatient", { state: { patient } });
-      } else {
-        //Existing patient (has at least one record)
-        setSelectedPatient(patient);
-        setShowEditModal(true);
+      const parsed = parseCurrentProblems(
+        latestRecord.currentProblems || latestRecord.currentProblemsString
+      );
+
+      latestRecord = { ...latestRecord, ...parsed };
+
+      if (!latestRecord.age) {
+        latestRecord.age = calculateAge(patient.dateOfBirth || patient.dob);
       }
+
+      navigate("/AddNewPatient", {
+        state: {
+          patient,
+          latestRecord,
+          isNewRecord: false,
+        },
+      });
     } catch (err) {
-      console.error("Error checking medical record count:", err);
+      console.error("Error fetching latest medical record:", err);
+      const age = calculateAge(patient.dateOfBirth || patient.dob);
+
+      navigate("/AddNewPatient", {
+        state: {
+          patient,
+          latestRecord: { age },
+          isNewRecord: true,
+        },
+      });
     }
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden w-full h-[700px]">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden w-full h-full">
       {/* HEADER */}
       <div className="px-5 py-4 bg-red-500 text-white">
         <div className="text-base font-semibold">Patients List</div>
@@ -421,7 +593,14 @@ function Dashboard() {
   const [staffCount, setStaffCount] = useState(0);
   const [todayCount, setTodayCount] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const role = JSON.parse(localStorage.getItem("userData"))?.role;
+    if (role !== "admin") {
+      navigate("/Dashboard");
+    }
+  }, []);
 
   useEffect(() => {
     const fetchCount = async () => {
@@ -474,19 +653,20 @@ function Dashboard() {
         isSidebarOpen={isSidebarOpen}
         onCloseSidebar={closeSidebar}
         currentPage="Dashboard"
+        userRole={JSON.parse(localStorage.getItem("userData"))?.role}
       />
-  
+
       {/* Main Content */}
       <main className="flex-1 flex flex-col overflow-hidden">
         <AppHeader onMenuToggle={toggleSidebar} isSidebarOpen={isSidebarOpen} />
-  
+
         <div className="flex-1 overflow-y-auto p-4 lg:p-6">
           {/* Top Row: Promo Banner + Right Side Buttons */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
             {/* Promo Banner */}
             <div className="lg:col-span-2">
               <PromoBanner />
-  
+
               {/* Small Stats Cards below Promo Banner */}
               <div className="mt-4 grid grid-cols-3 gap-4">
                 <StatCard
@@ -509,51 +689,27 @@ function Dashboard() {
                 />
               </div>
               {/* Middle Row: Chart */}
-          <div className="mt-1 grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="lg:col-span-4">
-              <LineChartCard />
+              <div className="mt-1 grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div className="lg:col-span-4">
+                  <LineChartCard />
+                </div>
+              </div>
             </div>
-          </div>
-            </div>
-  
+
             {/* Right Side: Buttons + Doctor List */}
             <div className="flex flex-col gap-4">
               {/* Buttons at the top-right */}
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={() => setIsModalOpen(true)}
-                  className="bg-red-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-red-700 transition flex items-center"
-                >
-                  <UserPlusIcon className="w-5 h-5 mr-2" />
-                  Register Patient
-                </button>
-  
-                {isModalOpen && (
-                  <RegisterPatient onClose={() => setIsModalOpen(false)} />
-                )}
-  
-                <Link
-                  to="/AddNewPatient"
-                  className="bg-red-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-red-700 transition flex items-center"
-                >
-                  <UserPlusIcon className="w-5 h-5 mr-2" />
-                  Add New Patient
-                </Link>
-              </div>
-  
+
               {/* Doctor List Card below buttons */}
               <DoctorsListCard />
             </div>
           </div>
-  
-          
         </div>
-  
+
         <AppFooter />
       </main>
     </div>
   );
-  
 }
 
 export default Dashboard;

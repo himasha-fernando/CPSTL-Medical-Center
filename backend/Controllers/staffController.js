@@ -38,7 +38,7 @@ const getAllStaff = (req, res) => {
 // Get staff by ID
 const getStaffById = (req, res) => {
   const { id } = req.params;
-  Staff.getById(id, (err, result) => {
+  Staff.getStaffById(id, (err, result) => {
     if (err) return res.status(500).json({ error: err.message });
     if (result.length === 0)
       return res.status(404).json({ message: "Staff not found" });
@@ -76,6 +76,14 @@ const getStaffCount = (req, res) => {
   });
 };
 
+// Get all users
+const getAllUsers = (req, res) => {
+  Staff.getAllUsers((err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(results);
+  });
+};
+
 module.exports = {
   addStaff,
   getAllStaff,
@@ -83,4 +91,5 @@ module.exports = {
   deleteStaffById,
   updateStaffById,
   getStaffCount,
+  getAllUsers,
 };

@@ -107,6 +107,40 @@ const getAbsentPatientCountByDepartment = (callback) => {
 
   db.query(sql, callback);
 };
+
+// Check if patient exists by registrationNo
+const checkPatientByRegistrationNo = (registrationNo, callback) => {
+  const sql = "SELECT id FROM patients WHERE registrationNo = ?";
+  db.query(sql, [registrationNo], callback);
+};
+
+const findPatientByField = (field, value, callback) => {
+  const allowedFields = ["registrationNo", "epfNo"];
+  if (!allowedFields.includes(field)) {
+    return callback(new Error("Invalid field for search"));
+  }
+
+  //remove extra spaces
+  const trimmedValue = value.trim();
+  const sql = `SELECT * FROM patients WHERE TRIM(${field}) = ? LIMIT 1`;
+  console.log("SQL Query:", sql, "Value:", trimmedValue);
+
+  db.query(sql, [trimmedValue], callback);
+};
+
+const findByName = (name, callback) => {
+  const sql = "SELECT * FROM patients WHERE name = ? LIMIT 1";
+  db.query(sql, [name], (err, results) => {
+    if (err) return callback(err);
+    callback(null, results[0]);
+  });
+};
+
+const checkEPFExists = (epfNo, callback) => {
+  const sql = "SELECT id FROM patients WHERE epfNo = ?";
+  db.query(sql, [epfNo], callback);
+};
+
 module.exports = {
   addPatient,
   getPatients,
@@ -114,5 +148,9 @@ module.exports = {
   deletePatient,
   getPatientCount,
   checkPatient,
-  getAbsentPatientCountByDepartment
+  getAbsentPatientCountByDepartment,
+  checkPatientByRegistrationNo,
+  findPatientByField,
+  findByName,
+  checkEPFExists,
 };

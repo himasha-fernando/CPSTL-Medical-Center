@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import axios from "axios";
 import {
   UserCircleIcon,
@@ -19,6 +20,7 @@ import { CheckIcon } from "@heroicons/react/24/solid";
 import AppSidebar from "../Components/AppSidebar";
 import AppHeader from "../Components/AppHeader";
 import AppFooter from "../Components/AppFooter";
+import MedicalHistoryChartModal from "../Components/MedicalHistoryChartModal";
 
 // Step configuration
 const STEPS = [
@@ -345,61 +347,255 @@ const makeCurrentProblemsString = (entries = []) => {
 
 // The main page component for adding a new patient
 function AddNewPatient() {
+  const { id } = useParams();
   const location = useLocation();
-  const passedPatient = location.state?.patient || {};
+  const passedPatient = location.state?.patient || null;
+  const latestRecord = location.state?.latestRecord || null;
+
+  // Determine patientId correctly
+  let patientId = id || passedPatient?.id || null;
+
+  const isNewPatientMode = !patientId;
+  const isNewPatient = !patientId;
+
+  const isEditMode = Boolean(passedPatient && latestRecord);
+  const isAddMedicalRecordMode = Boolean(passedPatient && latestRecord);
+  const [isAddNewPatientMode, setIsAddNewPatientMode] = useState(
+    Boolean(!passedPatient)
+  );
+
+  const [history, setHistory] = useState([]);
+  const [chartModalVisible, setChartModalVisible] = useState(false);
+  const [chartField, setChartField] = useState("");
+  const [chartIndex, setChartIndex] = useState(0);
+
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
   const [stepperLayout] = useState("horizontal");
-  const [formData, setFormData] = useState({
-    registrationNo: passedPatient.registrationNo || "",
-    name: passedPatient.name || "",
-    epfNo: passedPatient.epfNo || "",
-    contactNo: passedPatient.contactNo || "",
-    gender: passedPatient.gender || "",
-    dateOfBirth: passedPatient.dateOfBirth || "",
-    age: "",
-    height: "",
-    weight: "",
-    bmi: "",
-    waist: "",
-    rbs: "",
-    fbs: "",
-    bp: "",
-    visionLeft: "",
-    visionRight: "",
-    patientHistory: [],
-    otherPatientConditions: "",
-    familyHistoryFather: [],
-    otherFatherConditions: "",
-    familyHistoryMother: [],
-    otherMotherConditions: "",
-    familyHistorySiblings: [],
-    otherSiblingsConditions: "",
-    alcoholConsumption: "",
-    smokingHabits: "",
-    currentProblems: "",
+  const [epfCheckMsg, setEpfCheckMsg] = useState("");
+
+  console.log("AddNewPatient received latestRecord:", latestRecord);
+
+  // Fetch ALL previous medical records
+  useEffect(() => {
+    if (patientId) {
+      axios
+        .get(`http://localhost:5000/patientmedicalrecords/${patientId}/records`)
+        .then((res) => {
+          const sorted = [...res.data].sort(
+            (a, b) => new Date(b.date) - new Date(a.date)
+          );
+          setHistory(sorted);
+        })
+        .catch(() => setHistory([]));
+    }
+  }, [patientId]);
+
+  const openChartModal = (field) => {
+    setChartField(field);
+    setChartIndex(0); // start with comparing latest vs previous
+    setChartModalVisible(true);
+  };
+
+  const closeChartModal = () => setChartModalVisible(false);
+
+  const goPrev = () => setChartIndex((prev) => prev + 1); // Older
+  const goNext = () => setChartIndex((prev) => prev - 1); // Newer
+
+  const mapSmokingSummaryToHabit = (summary) => {
+    if (!summary) return "";
+    if (summary.includes("Non")) return "Non Smoker";
+    if (summary.includes("Occasional")) return "Occasional Smoker";
+    if (summary.includes("Regular")) return "Regular Smoker";
+    return "";
+  };
+
+  const mapAlcoholSummaryToForm = (summary) => {
+    if (!summary)
+      return {
+        consumeAlcohol: false,
+        typeOfAlcohol: "",
+        drinksPerWeek: "",
+        durationOfHabit: "",
+        alcoholComments: "",
+      };
+
+    let consumeAlcohol = true;
+    let typeOfAlcohol = "";
+    let drinksPerWeek = "";
+    let durationOfHabit = "";
+    let alcoholComments = summary;
+
+    const lowerSummary = summary.toLowerCase();
+
+    // Map keywords to internal category
+    if (
+      lowerSummary.includes("low-risk") ||
+      lowerSummary.includes("occasional")
+    ) {
+      typeOfAlcohol = "Occasional Drinker";
+    } else if (
+      lowerSummary.includes("regular") ||
+      lowerSummary.includes("high risk") ||
+      lowerSummary.includes("moderate")
+    ) {
+      typeOfAlcohol = "Regular Drinker";
+    } else if (
+      lowerSummary.includes("non-drinker") ||
+      lowerSummary.includes("no alcohol")
+    ) {
+      consumeAlcohol = false;
+      typeOfAlcohol = "Non-Drinker";
+    }
+
+    return {
+      consumeAlcohol,
+      typeOfAlcohol,
+      drinksPerWeek,
+      durationOfHabit,
+      alcoholComments,
+    };
+  };
+
+  const initialFormData = {
+    // Basic info
+    registrationNo: passedPatient?.registrationNo || "",
+    name: passedPatient?.name || "",
+    epfNo: passedPatient?.epfNo || "",
+    department: passedPatient?.department || "",
+    contactNo: passedPatient?.contactNo || "",
+    gender: passedPatient?.gender || "",
+    dateOfBirth: passedPatient?.dateOfBirth || "",
+    patient_id: passedPatient?.id || passedPatient?._id || "",
+
+    // When editing an existing record - Auto-fill full medical data
+    age: latestRecord?.age || "",
+    height: latestRecord?.height || "",
+    weight: latestRecord?.weight || "",
+    bmi: latestRecord?.bmi || "",
+    waist: latestRecord?.waist || "",
+
+    rbs: latestRecord?.rbs || "",
+    fbs: latestRecord?.fbs || "",
+    systolicBP: latestRecord?.systolicBP || "",
+    diastolicBP: latestRecord?.diastolicBP || "",
+
+    visionLeft: latestRecord?.visionLeft || "",
+    visionRight: latestRecord?.visionRight || "",
+    breastExamination: latestRecord?.breastExamination || "Not Done",
+    papSmear: latestRecord?.papSmear || "Not Done",
+
+    alcoholConsumption: mapAlcoholSummaryToForm(
+      latestRecord?.alcoholSummary || passedPatient?.alcoholSummary
+    ),
+    alcoholSummary:
+      latestRecord?.alcoholSummary || passedPatient?.alcoholSummary || "",
+
+    smokingSummary:
+      latestRecord?.smokingSummary || passedPatient?.smokingSummary || "",
+    smokingHabits: mapSmokingSummaryToHabit(
+      latestRecord?.smokingSummary || passedPatient?.smokingSummary
+    ),
+
+    patientHistory: latestRecord?.patientHistory || [],
+    otherPatientConditions: latestRecord?.otherPatientConditions || "",
+
+    familyHistoryFather: latestRecord?.familyHistoryFather || [],
+    otherFatherConditions: latestRecord?.otherFatherConditions || "",
+    familyHistoryMother: latestRecord?.familyHistoryMother || [],
+    otherMotherConditions: latestRecord?.otherMotherConditions || "",
+    familyHistorySiblings: latestRecord?.familyHistorySiblings || [],
+    otherSiblingsConditions: latestRecord?.otherSiblingsConditions || "",
+
+    currentProblems: latestRecord?.currentProblems || "",
+    currentProblemsList: [],
     currentProblemsEntries: [
       {
         selected: [],
-        details: "",
+        details: latestRecord?.currentProblems || "",
         customOptions: [],
         addingCustom: false,
         newCustomLabel: "",
       },
     ],
-    breastExamination: "Not Done",
-    papSmear: "Not Done",
-    treatmentPlan: "",
-    smokingCessationAdvice: "",
-    alcoholAbuseAdvice: "",
-  });
+
+    treatmentPlan: latestRecord?.treatmentPlan || "",
+    smokingCessationAdvice: latestRecord?.smokingCessationAdvice || "",
+    alcoholAbuseAdvice: latestRecord?.alcoholAbuseAdvice || "",
+
+    visitDate:
+      latestRecord?.visitDate ||
+      new Date().toISOString().slice(0, 19).replace("T", " "),
+  };
+
+  //Use initialFormData as default state
+  const [formData, setFormData] = useState(initialFormData);
+
+  // Update formData whenever latestRecord or passedPatient changes
+  useEffect(() => {
+    if (latestRecord || passedPatient) {
+      const updatedForm = {
+        ...initialFormData,
+        // Fill medical details from latestRecord if exists
+        age: latestRecord?.age || "",
+        height: latestRecord?.height || "",
+        weight: latestRecord?.weight || "",
+        bmi: latestRecord?.bmi || "",
+        waist: latestRecord?.waist || "",
+
+        rbs: latestRecord?.rbs || "",
+        fbs: latestRecord?.fbs || "",
+        systolicBP: latestRecord?.systolicBP || "",
+        diastolicBP: latestRecord?.diastolicBP || "",
+
+        visionLeft: latestRecord?.visionLeft || "",
+        visionRight: latestRecord?.visionRight || "",
+        breastExamination: latestRecord?.breastExamination || "Not Done",
+        papSmear: latestRecord?.papSmear || "Not Done",
+
+        alcoholConsumption: mapAlcoholSummaryToForm(
+          latestRecord?.alcoholSummary || passedPatient?.alcoholSummary
+        ),
+        alcoholSummary:
+          latestRecord?.alcoholSummary || passedPatient?.alcoholSummary || "",
+
+        smokingSummary:
+          latestRecord?.smokingSummary || passedPatient?.smokingSummary || "",
+        smokingHabits: mapSmokingSummaryToHabit(
+          latestRecord?.smokingSummary || passedPatient?.smokingSummary
+        ),
+
+        patientHistory: latestRecord?.patientHistory || [],
+        otherPatientConditions: latestRecord?.otherPatientConditions || "",
+
+        familyHistoryFather: latestRecord?.familyHistoryFather || [],
+        otherFatherConditions: latestRecord?.otherFatherConditions || "",
+        familyHistoryMother: latestRecord?.familyHistoryMother || [],
+        otherMotherConditions: latestRecord?.otherMotherConditions || "",
+        familyHistorySiblings: latestRecord?.familyHistorySiblings || [],
+        otherSiblingsConditions: latestRecord?.otherSiblingsConditions || "",
+
+        currentProblems: latestRecord?.currentProblems || "",
+        treatmentPlan: latestRecord?.treatmentPlan || "",
+        smokingCessationAdvice: latestRecord?.smokingCessationAdvice || "",
+        alcoholAbuseAdvice: latestRecord?.alcoholAbuseAdvice || "",
+
+        visitDate:
+          latestRecord?.visitDate ||
+          new Date().toISOString().slice(0, 19).replace("T", " "),
+      };
+
+      setFormData(updatedForm);
+    }
+  }, [latestRecord, passedPatient]);
+
   const [errors, setErrors] = useState({});
 
-
+  //Reset with handleCancel
   const handleCancel = () => {
-    setFormData(initialFormData); // Reset to defaults
+    setFormData(initialFormData); // Reset all fields
     setErrors({});
-    setCurrentStep(1); // return to step 1
+    setCurrentStep(1); // Go back to Step 1 if needed
   };
   //calculate age
   const calculateAge = (dob) => {
@@ -435,53 +631,13 @@ function AddNewPatient() {
     }
   }, [formData.height, formData.weight]);
 
-  //handle checkbox change
-
- /*  const handleChange = (e, key = null) => {
-    const { name, value, checked, type } = e.target;
-
-    setFormData((prevData) => {
-      let updatedData = { ...prevData };
-
-      if (type === "checkbox") {
-        const targetKey = key || name;
-        const currentValues = prevData[targetKey] || [];
-        updatedData[targetKey] = checked
-          ? [...currentValues, value]
-          : currentValues.filter((item) => item !== value);
-      } else if (name === "dateOfBirth") {
-        // Automatically calculate age when user selects a date
-        updatedData.dateOfBirth = value;
-        updatedData.age = calculateAge(value);
-      } else {
-        updatedData[name] = value;
-      }
-
-      return updatedData;
-    });
-
-    if (errors[name]) {
-      setErrors((prev) => ({ ...prev, [name]: "" }));
-    }
-  }; */
-
-  // Automatically calculate age when DOB is fetched from database
-  useEffect(() => {
-    if (formData.dateOfBirth) {
-      setFormData((prev) => ({
-        ...prev,
-        age: calculateAge(prev.dateOfBirth),
-      }));
-    }
-  }, [formData.dateOfBirth]);
-
   // Handle field changes and auto-update dependent fields
   const handleChange = (e, key = null) => {
     const { name, value, checked, type } = e.target;
-  
+
     setFormData((prevData) => {
       let updatedData = { ...prevData };
-  
+
       // Checkbox handler
       if (type === "checkbox") {
         const targetKey = key || name;
@@ -489,28 +645,24 @@ function AddNewPatient() {
         updatedData[targetKey] = checked
           ? [...currentValues, value]
           : currentValues.filter((item) => item !== value);
-      } 
+      }
       //Auto calculate age
       else if (name === "dateOfBirth") {
         updatedData.dateOfBirth = value;
         updatedData.age = calculateAge(value);
-      } 
+      }
       //  BMI
       else if (name === "weight" || name === "height") {
         updatedData[name] = value;
-      
-        const height = parseFloat(
-          name === "height" ? value : prevData.height
-        );
-        const weight = parseFloat(
-          name === "weight" ? value : prevData.weight
-        );
-      
+
+        const height = parseFloat(name === "height" ? value : prevData.height);
+        const weight = parseFloat(name === "weight" ? value : prevData.weight);
+
         if (height > 0 && weight > 0) {
           const heightInMeters = height / 100;
           const bmiValue = weight / (heightInMeters * heightInMeters);
           const bmi = bmiValue.toFixed(1);
-      
+
           let bmiCategory = "";
           if (bmiValue < 18.5) bmiCategory = "Underweight";
           else if (bmiValue < 25) bmiCategory = "Normal";
@@ -518,7 +670,7 @@ function AddNewPatient() {
           else if (bmiValue < 35) bmiCategory = "Obesity Class I";
           else if (bmiValue < 40) bmiCategory = "Obesity Class II";
           else bmiCategory = "Obesity Class III";
-      
+
           updatedData.bmi = bmi;
           updatedData.bmiCategory = bmiCategory;
         } else {
@@ -527,44 +679,58 @@ function AddNewPatient() {
         }
       }
 
-       // Waist 
-    else if (name === "waist") {
-      updatedData.waist = value;
-      const gender = updatedData.gender || prevData.gender;
-      if (gender && value) {
-        updatedData.getwaistCategory = getWaistCategory(parseFloat(value), gender);
-      } else {
-        updatedData.getwaistCategory = "";
+      // Waist
+      else if (name === "waist") {
+        updatedData.waist = value;
+        const gender = updatedData.gender || prevData.gender;
+        if (gender && value) {
+          updatedData.getwaistCategory = getWaistCategory(
+            parseFloat(value),
+            gender
+          );
+        } else {
+          updatedData.getwaistCategory = "";
+        }
       }
-    }
 
+      // Vision Fields
+      else if (name === "visionLeft" || name === "visionRight") {
+        updatedData[name] = value;
+        updatedData.visionCategory = getVisionCategory(
+          name === "visionRight" ? value : updatedData.visionRight,
+          name === "visionLeft" ? value : updatedData.visionLeft
+        );
+      }
 
-
-        // Vision Fields 
-    else if (name === "visionLeft" || name === "visionRight") {
-      updatedData[name] = value;
-      updatedData.visionCategory = getVisionCategory(
-        name === "visionRight" ? value : updatedData.visionRight,
-        name === "visionLeft" ? value : updatedData.visionLeft
-      );
-    }
-
-
-       
       // Default field update
       else {
         updatedData[name] = value;
       }
-  
+
       return updatedData;
     });
-  
+
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: "" }));
     }
+
+    // Alcohol
+    else if (
+      name === "consumeAlcohol" ||
+      name === "typeOfAlcohol" ||
+      name === "drinksPerWeek" ||
+      name === "durationOfHabit" ||
+      name === "alcoholComments"
+    ) {
+      updatedData[name] = value;
+
+      // Update alcohol summary
+      updatedData.alcoholSummary = getAlcoholSummaryStep5({
+        ...prevData,
+        ...updatedData,
+      });
+    }
   };
-
-
 
   const CURRENT_PROBLEM_OPTIONS = [
     "Underweight",
@@ -573,11 +739,16 @@ function AddNewPatient() {
     "Obesity Class 1",
     "Obesity Class 2",
     "Obesity Class 3",
-    
   ];
-  
 
-
+  useEffect(() => {
+    if (formData.dateOfBirth) {
+      setFormData((prev) => ({
+        ...prev,
+        age: calculateAge(prev.dateOfBirth),
+      }));
+    }
+  }, [formData.dateOfBirth]);
 
   //Reusable checkbox handler
   const handleCheckboxChange = (e, key) => handleChange(e, key);
@@ -724,19 +895,6 @@ function AddNewPatient() {
       if (!formData.waist) newErrors.waist = "Waist measurement is required.";
     }
 
-    if (step === 5) {
-      const entries = formData.currentProblemsEntries || [];
-      const anyInfo = entries.some(
-        (e) =>
-          (Array.isArray(e.selected) && e.selected.length > 0) ||
-          (e.details && e.details.trim())
-      );
-      if (!anyInfo) {
-        newErrors.currentProblems =
-          "Please select at least one problem or enter additional details.";
-      }
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -763,6 +921,28 @@ function AddNewPatient() {
     }
   };
 
+  const checkExistingPatientByEPF = async (epfNo) => {
+    if (!epfNo) {
+      setEpfCheckMsg("");
+      return;
+    }
+
+    try {
+      const response = await axios.get(
+        `http://localhost:5000/patients/check-epf/${epfNo}`
+      );
+
+      if (response.data.exists) {
+        setEpfCheckMsg("⚠ Patient with this EPF already exists.");
+      } else {
+        setEpfCheckMsg("✔ No existing record found for this EPF.");
+      }
+    } catch (error) {
+      console.error("EPF check error:", error);
+      setEpfCheckMsg("Error checking EPF. Try again.");
+    }
+  };
+
   //Handle both database submission with proper ID extraction
   const handleSubmit = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
@@ -773,6 +953,7 @@ function AddNewPatient() {
         registrationNo: formData.registrationNo,
         name: formData.name,
         epfNo: formData.epfNo,
+        department: formData.department,
         contactNo: formData.contactNo,
         gender: formData.gender,
         dateOfBirth: formData.dateOfBirth,
@@ -780,58 +961,108 @@ function AddNewPatient() {
 
       console.log("Checking if patient exists:", basicInfo);
 
-      let patientId;
-      let isNewPatient = false;
-      // Check if patient already exists
-      const checkResponse = await axios.get(
-        `http://localhost:5000/patients/check?registrationNo=${formData.registrationNo}`
-      );
+      let patientId = null;
 
-      if (checkResponse.data.exists) {
-        // Patient exists → use existing ID
-        patientId = checkResponse.data.patientId;
-        console.log("Patient already exists. Using ID:", patientId);
-      } else {
-        // Patient does not exist → add new patient
+      // New patient
+      if (id) {
+        patientId = id;
+      }
+      // Existing patient
+      else if (passedPatient && passedPatient.id) {
+        patientId = passedPatient.id;
+      }
+
+      if (isAddNewPatientMode) {
         const patientResponse = await axios.post(
           "http://localhost:5000/patients/add",
           basicInfo
         );
         patientId = patientResponse.data.patientId;
-        isNewPatient = true;
-        console.log("New patient added. ID:", patientId);
+        console.log("New patient ID:", patientId);
+      } else {
+        // Existing patient,dont save basic info again
+        patientId = formData.patient_id; // Use existing patient ID
+        console.log(
+          "Existing patient → skip saving basic info, patient ID:",
+          patientId
+        );
       }
+
+      // Save medical record
+      if (!isAddNewPatientMode && patientId) {
+        try {
+          const { data: latestRecord } = await axios.get(
+            `http://localhost:5000/patientmedicalrecords/${patientId}/latest`
+          );
+          console.log("Latest Record:", latestRecord);
+        } catch (err) {
+          console.log("No previous medical record (first visit)");
+        }
+      } else {
+        console.log("Skipping latest medical record fetch");
+      }
+
+      const currentProblemsList = [];
+
+      if (formData.bmiCategory)
+        currentProblemsList.push(`BMI: ${formData.bmiCategory}`);
+      if (formData.getwaistCategory)
+        currentProblemsList.push(`Waist: ${formData.getwaistCategory}`);
+      if (formData.visionCategory)
+        currentProblemsList.push(`Vision: ${formData.visionCategory}`);
+      if (diabetesCategory)
+        currentProblemsList.push(`Diabetes: ${diabetesCategory}`);
+
+      const bpCategory = getHypertensionCategory(
+        formData.systolicBP,
+        formData.diastolicBP
+      );
+      if (bpCategory) currentProblemsList.push(`Blood Pressure: ${bpCategory}`);
+
+      if (formData.consumeAlcohol)
+        currentProblemsList.push(
+          `Alcohol: ${getAlcoholSummaryStep5(formData)}`
+        );
+
+      if (formData.smokingHabits)
+        currentProblemsList.push(
+          `Smoking: ${getSmokingSummaryStep5(formData.smokingHabits)}`
+        );
 
       // Prepare medical info
       const medicalInfo = {
         patient_id: patientId,
         visitDate: new Date().toISOString().slice(0, 19).replace("T", " "),
-        age: formData.age,
-        height: formData.height,
-        weight: formData.weight,
-        bmi: formData.bmi,
-        waist: formData.waist,
-        rbs: formData.rbs || null,
-        fbs: formData.fbs || null,
-        bp: formData.bp || null,
-        visionLeft: formData.visionLeft || null,
-        visionRight: formData.visionRight || null,
-        breastExamination: formData.breastExamination,
-        papSmear: formData.papSmear,
-        alcoholConsumption: formData.alcoholConsumption || null,
-        smokingHabits: formData.smokingHabits || null,
-        treatmentPlan: formData.treatmentPlan || null,
-        smokingCessationAdvice: formData.smokingCessationAdvice || null,
-        alcoholAbuseAdvice: formData.alcoholAbuseAdvice || null,
+        age: formData.age ?? null,
+        height: formData.height ?? null,
+        weight: formData.weight ?? null,
+        bmi: formData.bmi ?? null,
+        waist: formData.waist ?? null,
+        rbs: formData.rbs ?? null,
+        fbs: formData.fbs ?? null,
+        systolicBP: formData.systolicBP ?? null,
+        diastolicBP: formData.diastolicBP ?? null,
+        visionLeft: formData.visionLeft ?? null,
+        visionRight: formData.visionRight ?? null,
+        breastExamination: formData.breastExamination ?? null,
+        papSmear: formData.papSmear ?? null,
+        alcoholConsumption: getAlcoholMessageStep4(formData) ?? null,
+        alcoholSummary: getAlcoholSummaryStep5(formData) ?? null,
+        smokingHabits: getSmokingMessageStep4(formData.smokingHabits) ?? null,
+        smokingSummary: getSmokingSummaryStep5(formData.smokingHabits) ?? null,
+        treatmentPlan: formData.treatmentPlan ?? null,
+        smokingCessationAdvice: formData.smokingCessationAdvice ?? null,
+        alcoholAbuseAdvice: formData.alcoholAbuseAdvice ?? null,
         patientHistory: formData.patientHistory || [],
+        otherPatientConditions: formData.otherPatientConditions ?? null,
         familyHistoryFather: formData.familyHistoryFather || [],
+        otherFatherConditions: formData.otherFatherConditions ?? null,
         familyHistoryMother: formData.familyHistoryMother || [],
+        otherMotherConditions: formData.otherMotherConditions ?? null,
         familyHistorySiblings: formData.familyHistorySiblings || [],
-        otherPatientConditions: formData.otherPatientConditions || null,
-        otherFatherConditions: formData.otherFatherConditions || null,
-        otherMotherConditions: formData.otherMotherConditions || null,
-        otherSiblingsConditions: formData.otherSiblingsConditions || null,
-        currentProblems: formData.currentProblems || null,
+        otherSiblingsConditions: formData.otherSiblingsConditions ?? null,
+        currentProblems:
+          currentProblemsList.join("; ") || "No current problems reported.",
       };
 
       console.log("Sending medical info:", medicalInfo);
@@ -859,33 +1090,56 @@ function AddNewPatient() {
 
       // Clear form
       setFormData({
+        // Patient identifiers
         registrationNo: "",
         name: "",
         epfNo: "",
+        department: "",
         contactNo: "",
         gender: "",
         dateOfBirth: "",
+        patient_id: "",
+
+        // Basic details
         age: "",
         height: "",
         weight: "",
         bmi: "",
         waist: "",
+
+        // Blood sugar / vitals
         rbs: "",
         fbs: "",
-        bp: "",
+        systolicBP: "",
+        diastolicBP: "",
+
+        // Vision & exams
         visionLeft: "",
         visionRight: "",
-        patientHistory: [],
-        familyHistoryFather: [],
-        familyHistoryMother: [],
-        familyHistorySiblings: [],
-        otherPatientConditions: "",
-        otherFatherConditions: "",
-        otherMotherConditions: "",
-        otherSiblingsConditions: "",
+        breastExamination: "Not Done",
+        papSmear: "Not Done",
+
+        // Lifestyle habits
         alcoholConsumption: "",
         smokingHabits: "",
+        alcoholSummary: "",
+        smokingSummary: "",
+
+        // Medical history
+        patientHistory: [],
+        otherPatientConditions: "",
+
+        // Family history
+        familyHistoryFather: [],
+        otherFatherConditions: "",
+        familyHistoryMother: [],
+        otherMotherConditions: "",
+        familyHistorySiblings: [],
+        otherSiblingsConditions: "",
+
+        // Problems & diagnoses
         currentProblems: "",
+        currentProblemsList: [],
         currentProblemsEntries: [
           {
             selected: [],
@@ -895,11 +1149,14 @@ function AddNewPatient() {
             newCustomLabel: "",
           },
         ],
-        breastExamination: "Not Done",
-        papSmear: "Not Done",
+
+        // Treatment & advice
         treatmentPlan: "",
         smokingCessationAdvice: "",
         alcoholAbuseAdvice: "",
+
+        // Visit details
+        visitDate: "",
       });
     } catch (error) {
       console.error("Error saving patient data:", error);
@@ -922,14 +1179,13 @@ function AddNewPatient() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const handleView = async (patient) => {
     try {
-      // If this patient is just added, don't fetch latest medical record
       if (patient.isNew) {
         console.log("New patient, skipping latest medical record fetch.");
-        setMedicalRecord(null); // or empty object
+        setMedicalRecord(null);
         return;
       }
 
-      // Otherwise, fetch latest medical record
+      // Fetch latest medical record
       const { data } = await axios.get(
         `http://localhost:5000/patientmedicalrecords/${patient.id}/latest`
       );
@@ -950,7 +1206,7 @@ function AddNewPatient() {
 
   const getWaistCategory = (waist, gender) => {
     if (!waist || !gender) return "";
-  
+
     if (gender === "Male") {
       return waist >= 90 ? "Abdominal Obesity" : "Normal";
     } else if (gender === "Female") {
@@ -960,61 +1216,275 @@ function AddNewPatient() {
   };
 
   //Determine Vision Category based on both eyes
-const getVisionCategory = (rightEye, leftEye) => {
-  if (!rightEye || !leftEye) return "";
+  const getVisionCategory = (rightEye, leftEye) => {
+    if (!rightEye || !leftEye) return "";
 
-  const normalCombinations = [
-    ["6/6", "6/6"],
-    ["6/12", "6/12"],
-    ["6/6", "6/18"],
-    ["6/18", "6/6"],
-  ];
+    const normalCombinations = [
+      ["6/6", "6/6"],
+      ["6/12", "6/12"],
+      ["6/6", "6/18"],
+      ["6/18", "6/6"],
+    ];
 
-  const isNormal = normalCombinations.some(
-    ([r, l]) =>
-      r.trim().toLowerCase() === rightEye.trim().toLowerCase() &&
-      l.trim().toLowerCase() === leftEye.trim().toLowerCase()
-  );
+    const isNormal = normalCombinations.some(
+      ([r, l]) =>
+        r.trim().toLowerCase() === rightEye.trim().toLowerCase() &&
+        l.trim().toLowerCase() === leftEye.trim().toLowerCase()
+    );
 
-  return isNormal ? "Normal" : "Poor Vision";
-};
+    return isNormal ? "Normal" : "Poor Vision";
+  };
 
+  const getDiabetesCategory = (rbsValue) => {
+    const value = parseFloat(rbsValue);
+    if (isNaN(value)) return "";
 
-const getDiabetesCategory = (rbsValue) => {
-  const value = parseFloat(rbsValue);
-  if (isNaN(value)) return "";
+    if (value < 140) return "Normal";
+    if (value >= 141 && value <= 199) return "Prediabetes";
+    if (value >= 200) return "Diabetes";
 
-  if (value < 140) return "Normal";
-  if (value >= 141 && value <= 199) return "Prediabetes";
-  if (value >= 200) return "Diabetes";
+    return "";
+  };
 
-  return "";
-};
+  const getHypertensionCategory = (systolic, diastolic) => {
+    if (!systolic || !diastolic) return "";
 
+    const s = parseFloat(systolic);
+    const d = parseFloat(diastolic);
 
+    if (s < 130 && d < 85) return "Normal";
+    if ((s >= 130 && s <= 139) || (d >= 85 && d <= 89)) return "High Normal BP";
+    if ((s >= 140 && s <= 159) || (d >= 90 && d <= 99))
+      return "Grade 1 Hypertension";
+    if (s >= 160 || d >= 100) return "Grade 2 Hypertension";
+    if (s >= 140 && d < 90) return "Isolated Systolic Hypertension";
 
-const getHypertensionCategory = (systolic, diastolic) => {
-  if (!systolic || !diastolic) return "";
+    return "";
+  };
 
-  const s = parseFloat(systolic);
-  const d = parseFloat(diastolic);
+  // Detailed Step 4 message for Alcohol
+  const getAlcoholMessageStep4 = (formData) => {
+    if (formData.consumeAlcohol === "No")
+      return "✅ No alcohol consumption reported. Healthy habit maintained.";
 
-  if (s < 130 && d < 85) return "Normal";
-  if ((s >= 130 && s <= 139) || (d >= 85 && d <= 89)) return "High Normal BP";
-  if ((s >= 140 && s <= 159) || (d >= 90 && d <= 99)) return "Grade 1 Hypertension";
-  if (s >= 160 || d >= 100) return "Grade 2 Hypertension";
-  if (s >= 140 && d < 90) return "Isolated Systolic Hypertension";
+    const drinks = parseInt(formData.drinksPerWeek || 0);
+    const duration = parseInt(formData.durationOfHabit) || 0;
+    const type = formData.typeOfAlcohol;
 
-  return "";
-};
+    let riskLevel = "low";
 
+    if (type && drinks) {
+      if (["Beer", "Wine"].includes(type)) {
+        if (drinks > 10) riskLevel = "high";
+        else if (drinks > 5) riskLevel = "moderate";
+      } else if (["Arrack", "Spirits", "Whisky"].includes(type)) {
+        if (drinks > 6) riskLevel = "high";
+        else if (drinks > 3) riskLevel = "moderate";
+      }
+
+      if (duration > 10) riskLevel = "high";
+      else if (duration > 5 && riskLevel === "low") riskLevel = "moderate";
+    }
+
+    if (riskLevel === "low")
+      return "✅ Low-risk alcohol use pattern — monitor health regularly.";
+    if (riskLevel === "moderate")
+      return "⚠️ Moderate alcohol intake detected — advise reducing frequency and monitoring liver health.";
+    if (riskLevel === "high")
+      return "🚨 High-risk drinking pattern — recommend medical evaluation, counseling, or cessation support.";
+  };
+
+  // Small Step 5 summary for Alcohol
+  const getAlcoholSummaryStep5 = (formData) => {
+    // If user selects No
+    if (formData.consumeAlcohol === "No") {
+      return "No alcohol — healthy.";
+    }
+
+    // If alcohol values are updated by user, compute real-time
+    const drinks = parseInt(formData.drinksPerWeek || 0);
+    const type = formData.typeOfAlcohol;
+
+    if (!type || !drinks) {
+      return formData.alcoholSummary || "Alcohol consumed";
+    }
+
+    if (["Beer", "Wine"].includes(type)) {
+      if (drinks > 10) return "High-risk drinking pattern";
+      if (drinks > 5) return "Moderate alcohol use";
+      return "Low-risk alcohol use";
+    }
+
+    if (["Arrack", "Spirits", "Whisky"].includes(type)) {
+      if (drinks > 6) return "High-risk drinking pattern";
+      if (drinks > 3) return "Moderate alcohol use";
+      return "Low-risk alcohol use";
+    }
+
+    return formData.alcoholSummary || "Alcohol consumed";
+  };
+
+  // Step 4 message for Smoking
+  const getSmokingMessageStep4 = (habit) => {
+    if (!habit) return "";
+    if (habit === "Non Smoker")
+      return "✅ Excellent! You maintain a non smoking lifestyle — great for your lungs and heart.";
+    if (habit === "Occasional Smoker")
+      return "⚠️ Occasional smoking detected — even light smoking can impact health. Consider quitting completely.";
+    if (habit === "Regular Smoker")
+      return "🚨 Regular smoking is high risk — strongly advise cessation, counseling, and lung health evaluation.";
+  };
+
+  // Small Step 5 summary for Smoking
+  const getSmokingSummaryStep5 = (habit) => {
+    if (!habit) return "";
+    if (habit === "Non Smoker") return "Non smoking — healthy";
+    if (habit === "Occasional Smoker")
+      return "Occasional smoking — moderate risk";
+    if (habit === "Regular Smoker") return "Regular smoking — high risk";
+  };
 
   const commonMedicalConditions = ["DM", "HTN", "CHOL", "IHD", "CA"];
-   
-  
+
   //Compute diabetes category
-    const diabetesCategory = getDiabetesCategory(formData.rbs);
-    
+  const diabetesCategory = getDiabetesCategory(formData.rbs);
+
+  const parseCurrentProblems = (str) => {
+    const obj = {};
+    if (!str) return obj;
+
+    str.split(";").forEach((item) => {
+      const [key, value] = item.split(":").map((s) => s.trim());
+      if (key && value) {
+        switch (key.toLowerCase()) {
+          case "bmi":
+            obj.bmiCategory = value;
+            break;
+          case "waist":
+            obj.getwaistCategory = value;
+            break;
+          case "vision":
+            obj.visionCategory = value;
+            break;
+          case "diabetes":
+            obj.diabetesCategory = value;
+            break;
+          case "blood pressure":
+            obj.bpCategory = value;
+            break;
+          case "smoking":
+            obj.smokingSummary = value;
+            break;
+          case "alcohol":
+            const alcoholData = mapAlcoholSummaryToForm(value);
+            obj.consumeAlcohol = alcoholData.consumeAlcohol; // boolean
+            obj.alcoholSummary = alcoholData.alcoholComments; // DB text
+            break;
+          default:
+            obj.otherIssues = (obj.otherIssues || "") + `${key}: ${value}; `;
+        }
+      }
+    });
+
+    return obj;
+  };
+
+  // Function to handle patient lookup entering epf
+  const handlePatientLookup = async (field, value) => {
+    if (!value) return;
+
+    try {
+      const res = await axios.get("http://localhost:5000/patients/search", {
+        params: { [field]: value },
+      });
+
+      const patient = res.data;
+
+      if (!patient) {
+        console.log("Patient not found → NEW patient mode");
+        setIsAddNewPatientMode(true);
+        return;
+      }
+
+      console.log("Existing patient found:", patient);
+      setIsAddNewPatientMode(false);
+
+      // Set patient info in the form
+      setFormData((prev) => ({
+        ...prev,
+        registrationNo: patient.registrationNo,
+        epfNo: patient.epfNo,
+        name: patient.name,
+        department: patient.department,
+        contactNo: patient.contactNo,
+        gender: patient.gender,
+        dateOfBirth: patient.dateOfBirth,
+        patient_id: patient.id,
+      }));
+
+      // Fetch latest medical record
+      const latestRes = await axios.get(
+        `http://localhost:5000/patientmedicalrecords/${patient.id}/latest`
+      );
+
+      if (latestRes.data?.latestRecord) {
+        const latest = latestRes.data.latestRecord;
+
+        const parsedProblems = parseCurrentProblems(
+          latest.currentProblems || ""
+        );
+
+        setFormData((prev) => ({
+          ...prev,
+
+          age: latest.age,
+          height: latest.height,
+          weight: latest.weight,
+          bmi: latest.bmi,
+          waist: latest.waist,
+          rbs: latest.rbs,
+          fbs: latest.fbs,
+          systolicBP: latest.systolicBP,
+          diastolicBP: latest.diastolicBP,
+          visionLeft: latest.visionLeft,
+          visionRight: latest.visionRight,
+          breastExamination: latest.breastExamination,
+          papSmear: latest.papSmear,
+          alcoholConsumption: mapAlcoholSummaryToForm(latest.alcoholSummary),
+          alcoholSummary: latest.alcoholSummary,
+          smokingHabits: mapSmokingSummaryToHabit(latest.smokingSummary),
+          smokingSummary: latest.smokingSummary,
+          ...parsedProblems,
+
+          patientHistory: latest.patientHistory,
+          familyHistoryFather: latest.familyHistoryFather,
+          familyHistoryMother: latest.familyHistoryMother,
+          familyHistorySiblings: latest.familyHistorySiblings,
+          otherPatientConditions: latest.otherPatientConditions,
+          otherFatherConditions: latest.otherFatherConditions,
+          otherMotherConditions: latest.otherMotherConditions,
+          otherSiblingsConditions: latest.otherSiblingsConditions,
+          treatmentPlan: latest.treatmentPlan,
+          smokingCessationAdvice: latest.smokingCessationAdvice,
+          alcoholAbuseAdvice: latest.alcoholAbuseAdvice,
+        }));
+      }
+      axios
+        .get(
+          `http://localhost:5000/patientmedicalrecords/${patient.id}/records`
+        )
+        .then((res) => {
+          const sorted = [...res.data].sort(
+            (a, b) =>
+              new Date(b.visitDate || b.date) - new Date(a.visitDate || a.date)
+          );
+          setHistory(sorted);
+        })
+        .catch(() => setHistory([]));
+    } catch (err) {
+      console.error("Lookup failed:", err);
+    }
+  };
 
   return (
     <div className="flex h-screen bg-gray-100 font-sans">
@@ -1103,6 +1573,18 @@ const getHypertensionCategory = (systolic, diastolic) => {
                         name="registrationNo"
                         value={formData.registrationNo}
                         onChange={handleChange}
+                        onBlur={(e) =>
+                          handlePatientLookup("registrationNo", e.target.value)
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handlePatientLookup(
+                              "registrationNo",
+                              e.target.value
+                            );
+                          }
+                        }}
                         className={`mt-1 block w-full border rounded-md shadow-sm p-1 focus:ring-2 focus:ring-red-500 ${
                           errors.registrationNo
                             ? "border-red-500 bg-red-50"
@@ -1116,6 +1598,7 @@ const getHypertensionCategory = (systolic, diastolic) => {
                         </p>
                       )}
                     </div>
+
                     <div>
                       <label
                         htmlFor="name"
@@ -1156,15 +1639,40 @@ const getHypertensionCategory = (systolic, diastolic) => {
                         id="epfNo"
                         name="epfNo"
                         value={formData.epfNo}
-                        onChange={(e) =>
-                          setFormData({ ...formData, epfNo: e.target.value })
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setFormData({ ...formData, epfNo: value });
+                          checkExistingPatientByEPF(value);
+                        }}
+                        onBlur={(e) =>
+                          handlePatientLookup("epfNo", e.target.value)
                         }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handlePatientLookup("epfNo", e.target.value);
+                          }
+                        }}
                         className={`mt-1 block w-full border rounded-md shadow-sm p-1 focus:ring-2 focus:ring-red-500 ${
                           errors.epfNo
                             ? "border-red-500 bg-red-50"
                             : "border-gray-300"
                         }`}
                       />
+
+                      {/* LIVE EPF CHECK MESSAGE */}
+                      {epfCheckMsg && (
+                        <p
+                          className={`mt-1 text-xs ${
+                            epfCheckMsg.includes("⚠")
+                              ? "text-red-600"
+                              : "text-green-600"
+                          }`}
+                        >
+                          {epfCheckMsg}
+                        </p>
+                      )}
+
                       {errors.epfNo && (
                         <p className="mt-1 text-xs text-red-500 flex items-center">
                           <ExclamationCircleIcon className="w-3 h-3 mr-1" />
@@ -1172,6 +1680,87 @@ const getHypertensionCategory = (systolic, diastolic) => {
                         </p>
                       )}
                     </div>
+
+                    <div>
+                      <label
+                        htmlFor="department"
+                        className="block text-xs font-medium text-gray-700"
+                      >
+                        Department <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        id="department"
+                        name="department"
+                        value={formData.department}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            department: e.target.value,
+                          })
+                        }
+                        className={`mt-1 block w-full border rounded-md shadow-sm p-1 focus:ring-2 focus:ring-red-500 ${
+                          errors.department
+                            ? "border-red-500 bg-red-50"
+                            : "border-gray-300"
+                        }`}
+                      >
+                        <option value="">Select Department</option>
+                        {[
+                          "ANURADHAPURA HOLIDAY",
+                          "AUTO MOBILE",
+                          "BULK MOVE. & BULK PR",
+                          "DGM(ENG & SS)",
+                          "DGM(FINANCE)",
+                          "DGM(HR & ADMIN)",
+                          "DGM(O)",
+                          "DISTRIBUTION",
+                          "ENGINEERING - DEVE.",
+                          "FIRE & SAFETY",
+                          "FINANCE",
+                          "INFORMATION SYSTEMS",
+                          "INTERNAL AUDIT",
+                          "INVESTIGATION",
+                          "IRD VAUNIYA",
+                          "KANDY HOLIDAY HOME",
+                          "KATARAGAMA HOLIDAY",
+                          "KKS",
+                          "LEGAL",
+                          "LBD ANURADHAPURA",
+                          "LBD BADULLA",
+                          "LBD BATTICALOA",
+                          "LBD GALLE",
+                          "LBD HAPUTALE",
+                          "LBD KOTAGALA",
+                          "LBD KURUNEGELA",
+                          "LBD MATARA",
+                          "LBD PERADENIYA",
+                          "LBD SARASAVI UYANA",
+                          "MAIN LABORATORY",
+                          "MEDICAL CENTER",
+                          "MUTHURAJWELA TERM",
+                          "NUWARAELIYA HOLIDAY",
+                          "OIL FACILITIES - OFF",
+                          "PERSONNEL",
+                          "PREMISES & ENGG. SER",
+                          "PROCUREMENT",
+                          "SECRETARIAT",
+                          "SECURITY",
+                          "STORES",
+                          "TRAINING",
+                        ].map((dept) => (
+                          <option key={dept} value={dept}>
+                            {dept}
+                          </option>
+                        ))}
+                      </select>
+                      {errors.department && (
+                        <p className="mt-1 text-xs text-red-500 flex items-center">
+                          <ExclamationCircleIcon className="w-3 h-3 mr-1" />
+                          {errors.department}
+                        </p>
+                      )}
+                    </div>
+
                     <div>
                       <label
                         htmlFor="contactNo"
@@ -1302,7 +1891,6 @@ const getHypertensionCategory = (systolic, diastolic) => {
                           {errors.gender}
                         </p>
                       )}
-                      
                     </div>
                   </div>
                 )}
@@ -1375,13 +1963,14 @@ const getHypertensionCategory = (systolic, diastolic) => {
                           )}
                         </div>
 
-                        <div>
+                        <div className="relative">
                           <label
                             htmlFor="bmi"
                             className="block text-xs font-medium text-gray-700"
                           >
                             BMI <span className="text-red-500">*</span>
                           </label>
+
                           <input
                             type="number"
                             id="bmi"
@@ -1389,10 +1978,18 @@ const getHypertensionCategory = (systolic, diastolic) => {
                             value={formData.bmi}
                             onChange={handleChange}
                             className={`mt-1 block w-full border rounded-md shadow-sm p-1 bg-gray-100 
-                focus:ring-0 ${
-                  errors.bmi ? "border-red-500 bg-red-50" : "border-gray-300"
-                }`}
+      focus:ring-0 ${
+        errors.bmi ? "border-red-500 bg-red-50" : "border-gray-300"
+      }`}
                           />
+
+                          <span
+                            className="absolute right-10 top-[25px] cursor-pointer text-blue-600 hover:text-blue-800"
+                            onClick={() => openChartModal("bmi")}
+                          >
+                            📈
+                          </span>
+
                           {errors.bmi && (
                             <p className="text-xs text-red-500">{errors.bmi}</p>
                           )}
@@ -1434,25 +2031,34 @@ const getHypertensionCategory = (systolic, diastolic) => {
                         title="Vital Signs & Lab Results"
                       />
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                        <div>
+                        <div className="relative">
                           <label
                             htmlFor="rbs"
                             className="block text-xs font-medium text-gray-700"
                           >
                             RBS (Random Blood Sugar)
                           </label>
+
                           <input
                             type="text"
                             id="rbs"
                             name="rbs"
                             value={formData.rbs}
                             onChange={handleChange}
-                            className={`mt-1 block w-full border rounded-md shadow-sm p-1 focus:ring-2 focus:ring-red-500 ${
+                            className={`mt-1 block w-full border rounded-md shadow-sm p-1 pr-10 focus:ring-2 focus:ring-red-500 ${
                               errors.rbs
                                 ? "border-red-500 bg-red-50"
                                 : "border-gray-300"
                             }`}
                           />
+
+                          <span
+                            className="absolute right-10 top-[25px] cursor-pointer text-blue-600 hover:text-blue-800"
+                            onClick={() => openChartModal("rbs")}
+                          >
+                            📈
+                          </span>
+
                           {errors.rbs && (
                             <p className="mt-1 text-xs text-red-500 flex items-center">
                               <ExclamationCircleIcon className="w-3 h-3 mr-1" />
@@ -1460,25 +2066,34 @@ const getHypertensionCategory = (systolic, diastolic) => {
                             </p>
                           )}
                         </div>
-                        <div>
+                        <div className="relative">
                           <label
                             htmlFor="fbs"
                             className="block text-xs font-medium text-gray-700"
                           >
                             FBS (Fasting Blood Sugar)
                           </label>
+
                           <input
                             type="text"
                             id="fbs"
                             name="fbs"
                             value={formData.fbs}
                             onChange={handleChange}
-                            className={`mt-1 block w-full border rounded-md shadow-sm p-1 focus:ring-2 focus:ring-red-500 ${
+                            className={`mt-1 block w-full border rounded-md shadow-sm p-1 pr-10 focus:ring-2 focus:ring-red-500 ${
                               errors.fbs
                                 ? "border-red-500 bg-red-50"
                                 : "border-gray-300"
                             }`}
                           />
+
+                          <span
+                            className="absolute right-10 top-[25px] cursor-pointer text-blue-600 hover:text-blue-800"
+                            onClick={() => openChartModal("fbs")}
+                          >
+                            📈
+                          </span>
+
                           {errors.fbs && (
                             <p className="mt-1 text-xs text-red-500 flex items-center">
                               <ExclamationCircleIcon className="w-3 h-3 mr-1" />
@@ -1486,64 +2101,83 @@ const getHypertensionCategory = (systolic, diastolic) => {
                             </p>
                           )}
                         </div>
-                       {/* Blood Pressure */}
-<div className="flex items-start space-x-4">
-  {/* Systolic BP */}
-  <div className="flex-1">
-    <label
-      htmlFor="systolicBP"
-      className="block text-xs font-medium text-gray-700"
-    >
-      Systolic BP (mmHg)
-    </label>
-    <input
-      type="number"
-      id="systolicBP"
-      name="systolicBP"
-      value={formData.systolicBP}
-      onChange={handleChange}
-      placeholder="e.g., 120"
-      className={`mt-1 block w-full border rounded-md shadow-sm p-1 focus:ring-2 focus:ring-red-500 ${
-        errors.systolicBP ? "border-red-500 bg-red-50" : "border-gray-300"
-      }`}
-    />
-    {errors.systolicBP && (
-      <p className="mt-1 text-xs text-red-500 flex items-center">
-        <ExclamationCircleIcon className="w-3 h-3 mr-1" />
-        {errors.systolicBP}
-      </p>
-    )}
-  </div>
 
-  {/* Diastolic BP */}
-  <div className="flex-1">
-    <label
-      htmlFor="diastolicBP"
-      className="block text-xs font-medium text-gray-700"
-    >
-      Diastolic BP (mmHg)
-    </label>
-    <input
-      type="number"
-      id="diastolicBP"
-      name="diastolicBP"
-      value={formData.diastolicBP}
-      onChange={handleChange}
-      placeholder="e.g., 80"
-      className={`mt-1 block w-full border rounded-md shadow-sm p-1 focus:ring-2 focus:ring-red-500 ${
-        errors.diastolicBP ? "border-red-500 bg-red-50" : "border-gray-300"
-      }`}
-    />
-    {errors.diastolicBP && (
-      <p className="mt-1 text-xs text-red-500 flex items-center">
-        <ExclamationCircleIcon className="w-3 h-3 mr-1" />
-        {errors.diastolicBP}
-      </p>
-    )}
-  </div>
-</div>
+                        {/* Blood Pressure */}
+                        <div className="flex items-start space-x-4">
+                          {/* Systolic BP */}
+                          <div className="relative flex-1">
+                            <label
+                              htmlFor="systolicBP"
+                              className="block text-xs font-medium text-gray-700"
+                            >
+                              Systolic BP (mmHg)
+                            </label>
 
+                            <input
+                              type="number"
+                              id="systolicBP"
+                              name="systolicBP"
+                              value={formData.systolicBP}
+                              onChange={handleChange}
+                              className={`mt-1 block w-full border rounded-md shadow-sm p-1 pr-10 ${
+                                errors.systolicBP
+                                  ? "border-red-500 bg-red-50"
+                                  : "border-gray-300"
+                              }`}
+                            />
 
+                            <span
+                              className="absolute right-10 top-[25px] cursor-pointer text-blue-600 hover:text-blue-800"
+                              onClick={() => openChartModal("systolicBP")}
+                            >
+                              📈
+                            </span>
+
+                            {errors.systolicBP && (
+                              <p className="mt-1 text-xs text-red-500 flex items-center">
+                                <ExclamationCircleIcon className="w-3 h-3 mr-1" />
+                                {errors.systolicBP}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Diastolic BP */}
+                          <div className="relative flex-1">
+                            <label
+                              htmlFor="diastolicBP"
+                              className="block text-xs font-medium text-gray-700"
+                            >
+                              Diastolic BP (mmHg)
+                            </label>
+
+                            <input
+                              type="number"
+                              id="diastolicBP"
+                              name="diastolicBP"
+                              value={formData.diastolicBP}
+                              onChange={handleChange}
+                              className={`mt-1 block w-full border rounded-md shadow-sm p-1 pr-10 ${
+                                errors.diastolicBP
+                                  ? "border-red-500 bg-red-50"
+                                  : "border-gray-300"
+                              }`}
+                            />
+
+                            <span
+                              className="absolute right-10 top-[25px] cursor-pointer text-blue-600 hover:text-blue-800"
+                              onClick={() => openChartModal("diastolicBP")}
+                            >
+                              📈
+                            </span>
+
+                            {errors.diastolicBP && (
+                              <p className="mt-1 text-xs text-red-500 flex items-center">
+                                <ExclamationCircleIcon className="w-3 h-3 mr-1" />
+                                {errors.diastolicBP}
+                              </p>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -1729,7 +2363,7 @@ const getHypertensionCategory = (systolic, diastolic) => {
                     </div>
                   </div>
                 )}
-            
+
                 {/* Step 4: Lifestyle & Habits */}
                 {currentStep === 4 && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
@@ -1739,362 +2373,464 @@ const getHypertensionCategory = (systolic, diastolic) => {
                     </h1>
 
                     {/* Alcohol Consumption Section */}
-<div className="bg-white shadow-md rounded-xl p-6 border border-gray-100 mt-6">
-  <h2 className="block text-xs font-medium text-gray-700">
-    Alcohol Consumption
-  </h2>
+                    <div className="mt-6 bg-white rounded-xl shadow-md p-6 border border-gray-100">
+                      <h2 className="text-lg font-semibold text-red-700 border-b-2 border-red-500 pb-1 mb-4">
+                        🍷 Alcohol Consumption
+                      </h2>
 
-  <div className="grid grid-cols-2 gap-4">
-    {/* Do you consume alcohol? */}
-    <div>
-      <label
-        htmlFor="consumeAlcohol"
-        className="block text-sm font-medium text-gray-700 mb-1"
-      >
-        Do you consume alcohol?
-      </label>
-      <select
-        id="consumeAlcohol"
-        name="consumeAlcohol"
-        value={formData.consumeAlcohol}
-        onChange={handleChange}
-        className={`block w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-          errors.consumeAlcohol ? "border-red-500 bg-red-50" : "border-gray-300"
-        }`}
-      >
-        <option value="">Select</option>
-        <option value="Yes">Yes</option>
-        <option value="No">No</option>
-      </select>
-      {errors.consumeAlcohol && (
-        <p className="mt-1 text-xs text-red-500 flex items-center">
-          <ExclamationCircleIcon className="w-3 h-3 mr-1" />
-          {errors.consumeAlcohol}
-        </p>
-      )}
-    </div>
+                      <div
+                        className={`flex flex-col space-y-3 p-3 rounded-md transition-all duration-200 ${
+                          errors.consumeAlcohol
+                            ? "border border-red-400 bg-red-50"
+                            : "bg-gray-50 hover:bg-gray-100"
+                        }`}
+                      >
+                        {/* Do you consume alcohol? */}
+                        <div>
+                          <label
+                            htmlFor="consumeAlcohol"
+                            className="block text-sm font-medium text-gray-800 mb-1"
+                          >
+                            Do you consume alcohol?
+                          </label>
+                          <select
+                            id="consumeAlcohol"
+                            name="consumeAlcohol"
+                            value={formData.consumeAlcohol}
+                            onChange={handleChange}
+                            className={`block w-full border rounded-lg p-2 focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                              errors.consumeAlcohol
+                                ? "border-red-500 bg-red-50"
+                                : "border-gray-300"
+                            }`}
+                          >
+                            <option value="">Select</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                          </select>
+                        </div>
 
-    {/* Drinks per week */}
-    <div>
-      <label
-        htmlFor="drinksPerWeek"
-        className="block text-sm font-medium text-gray-700 mb-1"
-      >
-        Drinks per week (approx.)
-      </label>
-      <input
-        type="text"
-        id="drinksPerWeek"
-        name="drinksPerWeek"
-        value={formData.drinksPerWeek}
-        onChange={handleChange}
-        placeholder="e.g. 5"
-        className={`block w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-          errors.drinksPerWeek ? "border-red-500 bg-red-50" : "border-gray-300"
-        }`}
-      />
-    </div>
+                        {/* Only show these fields if alcohol is consumed */}
+                        {formData.consumeAlcohol === "Yes" && (
+                          <>
+                            <div className="grid grid-cols-2 gap-4 mt-2">
+                              {/* Type of Alcohol */}
+                              <div>
+                                <label
+                                  htmlFor="typeOfAlcohol"
+                                  className="block text-sm font-medium text-gray-800 mb-1"
+                                >
+                                  Type of Alcohol
+                                </label>
+                                <select
+                                  id="typeOfAlcohol"
+                                  name="typeOfAlcohol"
+                                  value={formData.typeOfAlcohol}
+                                  onChange={handleChange}
+                                  className={`block w-full border rounded-lg p-2 focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                                    errors.typeOfAlcohol
+                                      ? "border-red-500 bg-red-50"
+                                      : "border-gray-300"
+                                  }`}
+                                >
+                                  <option value="">Select type</option>
+                                  <option value="Beer">Beer</option>
+                                  <option value="Wine">Wine</option>
+                                  <option value="Spirits">Spirits</option>
+                                  <option value="Arrack">Arrack</option>
+                                  <option value="Whisky">Whisky</option>
+                                  <option value="Other">Other</option>
+                                </select>
+                              </div>
 
-    {/* Type of Alcohol */}
-    <div>
-      <label
-        htmlFor="typeOfAlcohol"
-        className="block text-sm font-medium text-gray-700 mb-1"
-      >
-        Type of Alcohol
-      </label>
-      <select
-        id="typeOfAlcohol"
-        name="typeOfAlcohol"
-        value={formData.typeOfAlcohol}
-        onChange={handleChange}
-        className={`block w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-          errors.typeOfAlcohol ? "border-red-500 bg-red-50" : "border-gray-300"
-        }`}
-      >
-        <option value="">Select type</option>
-        <option value="Beer">Beer</option>
-        <option value="Wine">Wine</option>
-        <option value="Spirits">Spirits</option>
-        <option value="Other">Other</option>
-      </select>
-    </div>
+                              {/* Drinks per week */}
+                              <div>
+                                <label
+                                  htmlFor="drinksPerWeek"
+                                  className="block text-sm font-medium text-gray-800 mb-1"
+                                >
+                                  Drinks per week (approx.)
+                                </label>
+                                <input
+                                  type="number"
+                                  id="drinksPerWeek"
+                                  name="drinksPerWeek"
+                                  value={formData.drinksPerWeek}
+                                  onChange={handleChange}
+                                  placeholder="e.g. 5"
+                                  className={`block w-full border rounded-lg p-2 focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                                    errors.drinksPerWeek
+                                      ? "border-red-500 bg-red-50"
+                                      : "border-gray-300"
+                                  }`}
+                                />
+                              </div>
 
-    {/* Duration of Habit */}
-    <div>
-      <label
-        htmlFor="durationOfHabit"
-        className="block text-sm font-medium text-gray-700 mb-1"
-      >
-        Duration of Habit
-      </label>
-      <input
-        type="text"
-        id="durationOfHabit"
-        name="durationOfHabit"
-        value={formData.durationOfHabit}
-        onChange={handleChange}
-        placeholder="e.g. 5 years"
-        className={`block w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-          errors.durationOfHabit ? "border-red-500 bg-red-50" : "border-gray-300"
-        }`}
-      />
-    </div>
-  </div>
+                              {/* Duration of Habit */}
+                              <div>
+                                <label
+                                  htmlFor="durationOfHabit"
+                                  className="block text-sm font-medium text-gray-800 mb-1"
+                                >
+                                  Duration of Habit
+                                </label>
+                                <input
+                                  type="text"
+                                  id="durationOfHabit"
+                                  name="durationOfHabit"
+                                  value={formData.durationOfHabit}
+                                  onChange={handleChange}
+                                  placeholder="e.g. 5 years"
+                                  className={`block w-full border rounded-lg p-2 focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                                    errors.durationOfHabit
+                                      ? "border-red-500 bg-red-50"
+                                      : "border-gray-300"
+                                  }`}
+                                />
+                              </div>
 
-  {/* Comments */}
-  <div className="mt-4">
-    <label
-      htmlFor="alcoholComments"
-      className="block text-sm font-medium text-gray-700 mb-1"
-    >
-      Comments
-    </label>
-    <textarea
-      id="alcoholComments"
-      name="alcoholComments"
-      rows="3"
-      value={formData.alcoholComments}
-      onChange={handleChange}
-      placeholder="Any remarks..."
-      className={`block w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-        errors.alcoholComments ? "border-red-500 bg-red-50" : "border-gray-300"
-      }`}
-    ></textarea>
-  </div>
-</div>
-                    <div>
-  <label
-    htmlFor="smokingHabits"
-    className="block text-xs font-medium text-gray-700"
-  >
-    Smoking Habits
-  </label>
+                              {/* Comments */}
+                              <div>
+                                <label
+                                  htmlFor="alcoholComments"
+                                  className="block text-sm font-medium text-gray-800 mb-1"
+                                >
+                                  Comments
+                                </label>
+                                <textarea
+                                  id="alcoholComments"
+                                  name="alcoholComments"
+                                  rows="2"
+                                  value={formData.alcoholComments}
+                                  onChange={handleChange}
+                                  placeholder="Any remarks..."
+                                  className={`block w-full border rounded-lg p-2 focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+                                    errors.alcoholComments
+                                      ? "border-red-500 bg-red-50"
+                                      : "border-gray-300"
+                                  }`}
+                                ></textarea>
+                              </div>
+                            </div>
 
-  <div
-    className={`mt-2 flex flex-col space-y-2 p-2 rounded-md ${
-      errors.smokingHabits
-        ? "border border-red-500 bg-red-50"
-        : "bg-gray-50"
-    }`}
-  >
-    <div className="flex items-center">
-      <input
-        type="radio"
-        id="occasionalSmoker"
-        name="smokingHabits"
-        value="Occasional Smoker"
-        checked={formData.smokingHabits === "Occasional Smoker"}
-        onChange={handleChange}
-        className="h-3 w-3 text-red-600 border-gray-300 focus:ring-red-500"
-      />
-      <label
-        htmlFor="occasionalSmoker"
-        className="ml-2 text-xs text-gray-700"
-      >
-        Occasional Smoker
-      </label>
-    </div>
+                            {/* Smart Decision Section */}
+                            <div className="mt-4">
+                              <div
+                                className={`border rounded-lg p-3 font-medium ${
+                                  getAlcoholMessageStep4(formData).includes(
+                                    "✅"
+                                  )
+                                    ? "bg-green-50 border-green-300 text-green-700"
+                                    : getAlcoholMessageStep4(formData).includes(
+                                        "⚠️"
+                                      )
+                                    ? "bg-yellow-50 border-yellow-300 text-yellow-700"
+                                    : "bg-red-50 border-red-300 text-red-700"
+                                }`}
+                              >
+                                {getAlcoholMessageStep4(formData)}
+                              </div>
+                            </div>
+                          </>
+                        )}
 
-    <div className="flex items-center">
-      <input
-        type="radio"
-        id="regularSmoker"
-        name="smokingHabits"
-        value="Regular Smoker"
-        checked={formData.smokingHabits === "Regular Smoker"}
-        onChange={handleChange}
-        className="h-3 w-3 text-red-600 border-gray-300 focus:ring-red-500"
-      />
-      <label
-        htmlFor="regularSmoker"
-        className="ml-2 text-xs text-gray-700"
-      >
-        Regular Smoker
-      </label>
-    </div>
-  </div>
+                        {/* If No is selected */}
+                        {formData.consumeAlcohol === "No" && (
+                          <div className="mt-3 bg-green-50 border border-green-200 text-green-700 text-sm font-medium rounded-lg p-3">
+                            {getAlcoholMessageStep4(formData)}
+                          </div>
+                        )}
+                        {formData.alcoholSummary}
+                      </div>
+                    </div>
 
-  {errors.smokingHabits && (
-    <p className="mt-1 text-xs text-red-500 flex items-center">
-      <ExclamationCircleIcon className="w-3 h-3 mr-1" />
-      {errors.smokingHabits}
-    </p>
-  )}
-</div>
+                    {/* Smoking Habits Section */}
+                    <div className="mt-6 bg-white rounded-xl shadow-md p-6 border border-gray-100">
+                      <h2 className="text-lg font-semibold text-red-700 border-b-2 border-red-500 pb-1 mb-4">
+                        🚬 Smoking Habits
+                      </h2>
 
+                      <div
+                        className={`flex flex-col space-y-3 p-3 rounded-md transition-all duration-200 ${
+                          errors.smokingHabits
+                            ? "border border-red-400 bg-red-50"
+                            : "bg-gray-50 hover:bg-gray-100"
+                        }`}
+                      >
+                        {/* Radio Options */}
+                        <div className="grid grid-cols-3 gap-4 text-sm font-medium text-gray-700">
+                          {[
+                            "Non Smoker",
+                            "Occasional Smoker",
+                            "Regular Smoker",
+                          ].map((habit) => (
+                            <label
+                              key={habit}
+                              htmlFor={habit}
+                              className={`flex items-center space-x-2 p-3 rounded-lg cursor-pointer transition-all duration-200 ${
+                                formData.smokingHabits === habit
+                                  ? habit === "Non Smoker"
+                                    ? "bg-green-100 border border-green-300 text-green-700 shadow-sm"
+                                    : habit === "Occasional Smoker"
+                                    ? "bg-yellow-100 border border-yellow-300 text-yellow-700 shadow-sm"
+                                    : "bg-red-100 border border-red-300 text-red-700 shadow-sm"
+                                  : "bg-white border border-gray-200 hover:bg-gray-50"
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                id={habit}
+                                name="smokingHabits"
+                                value={habit}
+                                checked={formData.smokingHabits === habit}
+                                onChange={handleChange}
+                                className={`h-4 w-4 ${
+                                  habit === "Non Smoker"
+                                    ? "text-green-600"
+                                    : habit === "Occasional Smoker"
+                                    ? "text-yellow-600"
+                                    : "text-red-600"
+                                } border-gray-300 focus:ring-2 ${
+                                  habit === "Non Smoker"
+                                    ? "focus:ring-green-500"
+                                    : habit === "Occasional Smoker"
+                                    ? "focus:ring-yellow-500"
+                                    : "focus:ring-red-500"
+                                }`}
+                              />
+                              <span>{habit.replace("-", " ")}</span>
+                            </label>
+                          ))}
+                        </div>
 
+                        {/* Smart Decision Box */}
+                        {formData.smokingHabits && (
+                          <div
+                            className={`mt-4 border rounded-lg p-3 font-medium ${
+                              formData.smokingHabits === "Non Smoker"
+                                ? "bg-green-50 border-green-300 text-green-700"
+                                : formData.smokingHabits === "Occasional Smoker"
+                                ? "bg-yellow-50 border-yellow-300 text-yellow-700"
+                                : "bg-red-50 border-red-300 text-red-700"
+                            }`}
+                          >
+                            {getSmokingMessageStep4(formData.smokingHabits)}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
 
-               {/* Step 5: Current Problems (with all definitions under Issues) */}
-{currentStep === 5 && (
-  <div>
-    <h1 className="text-xl font-semibold text-gray-800 mb-4 flex items-center bg-red-50 p-3 rounded-lg border border-red-200">
-      <ExclamationCircleIcon className="w-6 h-6 mr-2 text-red-500" />
-      Current Problems
-    </h1>
+                {/* Step 5: Current Problems (with all definitions under Issues) */}
+                {currentStep === 5 && (
+                  <div>
+                    <h1 className="text-xl font-semibold text-gray-800 mb-4 flex items-center bg-red-50 p-3 rounded-lg border border-red-200">
+                      <ExclamationCircleIcon className="w-6 h-6 mr-2 text-red-500" />
+                      Current Problems
+                    </h1>
 
-    <div className="space-y-4">
-      {formData.currentProblemsEntries.map((entry, idx) => {
-        const options = [
-          ...CURRENT_PROBLEM_OPTIONS,
-          ...(entry.customOptions || []),
-        ];
+                    <div className="space-y-4">
+                      {formData.currentProblemsEntries.map((entry, idx) => {
+                        const options = [
+                          ...CURRENT_PROBLEM_OPTIONS,
+                          ...(entry.customOptions || []),
+                        ];
 
-        return (
-          <div
-            key={idx}
-            className="relative border border-red-200 bg-red-50 rounded-lg p-4"
-          >
-            {/* Issues Section */}
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-700">Issues</span>
-             
-            </div>
+                        return (
+                          <div
+                            key={idx}
+                            className="relative border border-red-200 bg-red-50 rounded-lg p-4"
+                          >
+                            {/* Issues Section */}
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium text-gray-700">
+                                Issues
+                              </span>
+                            </div>
 
-      
-  
-            {/* Definitions Section  */}
-            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+                            {/* Definitions Section  */}
+                            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+                              {/* BMI */}
+                              {formData.bmiCategory && (
+                                <div className="flex flex-col items-start bg-white border border-red-200 rounded-xl shadow-sm p-3">
+                                  <div className="text-xs font-medium text-gray-600 mb-1">
+                                    {formData.step2Titles?.bmi || "BMI"}
+                                  </div>
+                                  <label className="flex items-center">
+                                    <input
+                                      type="checkbox"
+                                      checked
+                                      readOnly
+                                      className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                                    />
+                                    <span className="ml-2 text-xs text-gray-800">
+                                      {formData.bmiCategory}
+                                    </span>
+                                  </label>
+                                </div>
+                              )}
 
-              {/* BMI */}
-              {formData.bmiCategory && (
-                <div className="flex flex-col items-start bg-white border border-red-200 rounded-xl shadow-sm p-3">
-                  <div className="text-xs font-medium text-gray-600 mb-1">
-                    {formData.step2Titles?.bmi || "BMI"}
+                              {/* Waist */}
+                              {formData.getwaistCategory && (
+                                <div className="flex flex-col items-start bg-white border border-red-200 rounded-xl shadow-sm p-3">
+                                  <div className="text-xs font-medium text-gray-600 mb-1">
+                                    {formData.step2Titles?.waist || "Waist"}
+                                  </div>
+                                  <label className="flex items-center">
+                                    <input
+                                      type="checkbox"
+                                      checked
+                                      readOnly
+                                      className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                                    />
+                                    <span className="ml-2 text-xs text-gray-800">
+                                      {formData.getwaistCategory}
+                                    </span>
+                                  </label>
+                                </div>
+                              )}
+
+                              {/* Vision */}
+                              {formData.visionCategory && (
+                                <div className="flex flex-col items-start bg-white border border-red-200 rounded-xl shadow-sm p-3">
+                                  <div className="text-xs font-medium text-gray-600 mb-1">
+                                    {formData.step2Titles?.vision || "Vision"}
+                                  </div>
+                                  <label className="flex items-center">
+                                    <input
+                                      type="checkbox"
+                                      checked
+                                      readOnly
+                                      className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                                    />
+                                    <span className="ml-2 text-xs text-gray-800">
+                                      {formData.visionCategory}
+                                    </span>
+                                  </label>
+                                </div>
+                              )}
+
+                              {/* Diabetes */}
+                              {diabetesCategory && (
+                                <div className="flex flex-col items-start bg-white border border-red-200 rounded-xl shadow-sm p-3">
+                                  <div className="text-xs font-medium text-gray-600 mb-1">
+                                    {formData.step2Titles?.diabetes ||
+                                      "Diabetes Diagnosis"}
+                                  </div>
+                                  <label className="flex items-center">
+                                    <input
+                                      type="checkbox"
+                                      checked
+                                      readOnly
+                                      className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                                    />
+                                    <span className="ml-2 text-xs text-gray-800">
+                                      {diabetesCategory}
+                                    </span>
+                                  </label>
+                                </div>
+                              )}
+
+                              {/* Blood Pressure */}
+                              {getHypertensionCategory(
+                                formData.systolicBP,
+                                formData.diastolicBP
+                              ) && (
+                                <div className="flex flex-col items-start bg-white border border-red-200 rounded-xl shadow-sm p-3">
+                                  <div className="text-xs font-medium text-gray-600 mb-1">
+                                    {formData.step2Titles?.bp ||
+                                      "Blood Pressure"}
+                                  </div>
+                                  <label className="flex items-center">
+                                    <input
+                                      type="checkbox"
+                                      checked
+                                      readOnly
+                                      className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                                    />
+                                    <span className="ml-2 text-xs text-gray-800">
+                                      {getHypertensionCategory(
+                                        formData.systolicBP,
+                                        formData.diastolicBP
+                                      )}
+                                    </span>
+                                  </label>
+                                </div>
+                              )}
+
+                              {/* Alcohol */}
+                              {formData.consumeAlcohol && (
+                                <div className="flex flex-col items-start bg-white border border-red-200 rounded-xl shadow-sm p-3">
+                                  <div className="text-xs font-medium text-gray-600 mb-1">
+                                    Alcohol
+                                  </div>
+                                  <label className="flex items-center">
+                                    <input
+                                      type="checkbox"
+                                      checked
+                                      readOnly
+                                      className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                                    />
+                                    <span className="ml-2 text-xs text-gray-800">
+                                      {getAlcoholSummaryStep5(formData)}
+                                    </span>
+                                  </label>
+                                </div>
+                              )}
+
+                              {/* Smoking */}
+                              {formData.smokingHabits && (
+                                <div className="flex flex-col items-start bg-white border border-red-200 rounded-xl shadow-sm p-3">
+                                  <div className="text-xs font-medium text-gray-600 mb-1">
+                                    Smoking
+                                  </div>
+                                  <label className="flex items-center">
+                                    <input
+                                      type="checkbox"
+                                      checked
+                                      readOnly
+                                      className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                                    />
+                                    <span className="ml-2 text-xs text-gray-800">
+                                      {getSmokingSummaryStep5(
+                                        formData.smokingHabits
+                                      )}
+                                    </span>
+                                  </label>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Additional Details*/}
+                            <div className="mt-3">
+                              <label className="block text-xs font-medium text-gray-700">
+                                Additional details
+                              </label>
+                              <textarea
+                                rows={3}
+                                value={entry.details}
+                                onChange={(e) =>
+                                  handleEntryDetailsChange(idx, e.target.value)
+                                }
+                                className="mt-1 block w-full border rounded-md shadow-sm p-1 text-sm border-gray-300 focus:ring-2 focus:ring-red-500 bg-white"
+                                placeholder="Describe current symptoms and issues..."
+                              />
+                            </div>
+
+                            {/*  Validation Message*/}
+                            {errors.currentProblems && (
+                              <p className="text-xs text-red-600 flex items-center mt-2">
+                                <ExclamationCircleIcon className="w-3 h-3 mr-1" />
+                                {errors.currentProblems}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked
-                      readOnly
-                      className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
-                    />
-                    <span className="ml-2 text-xs text-gray-800">
-                      {formData.bmiCategory}
-                    </span>
-                  </label>
-                </div>
-              )}
-
-              {/* Waist */}
-              {formData.getwaistCategory && (
-  <div className="flex flex-col items-start bg-white border border-red-200 rounded-xl shadow-sm p-3">
-    <div className="text-xs font-medium text-gray-600 mb-1">
-      {formData.step2Titles?.waist || "Waist"}
-    </div>
-    <label className="flex items-center">
-      <input
-        type="checkbox"
-        checked
-        readOnly
-        className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
-      />
-      <span className="ml-2 text-xs text-gray-800">
-        {formData.getwaistCategory}
-      </span>
-    </label>
-  </div>
-)}
-
-
-              {/* Vision */}
-              {formData.visionCategory && (
-                <div className="flex flex-col items-start bg-white border border-red-200 rounded-xl shadow-sm p-3">
-                  <div className="text-xs font-medium text-gray-600 mb-1">
-                    {formData.step2Titles?.vision || "Vision"}
-                  </div>
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked
-                      readOnly
-                      className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
-                    />
-                    <span className="ml-2 text-xs text-gray-800">
-                      {formData.visionCategory}
-                    </span>
-                  </label>
-                </div>
-              )}
-         
-              {/* Diabetes */}
-              {diabetesCategory && (
-                <div className="flex flex-col items-start bg-white border border-red-200 rounded-xl shadow-sm p-3">
-                  <div className="text-xs font-medium text-gray-600 mb-1">
-                    {formData.step2Titles?.diabetes || "Diabetes Diagnosis"}
-                  </div>
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked
-                      readOnly
-                      className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
-                    />
-                    <span className="ml-2 text-xs text-gray-800">
-                      {diabetesCategory}
-                    </span>
-                  </label>
-                </div>
-              )}
-
-              {/* Blood Pressure */}
-              {getHypertensionCategory(
-                formData.systolicBP,
-                formData.diastolicBP
-              ) && (
-                <div className="flex flex-col items-start bg-white border border-red-200 rounded-xl shadow-sm p-3">
-                  <div className="text-xs font-medium text-gray-600 mb-1">
-                    {formData.step2Titles?.bp || "Blood Pressure"}
-                  </div>
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked
-                      readOnly
-                      className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
-                    />
-                    <span className="ml-2 text-xs text-gray-800">
-                      {getHypertensionCategory(
-                        formData.systolicBP,
-                        formData.diastolicBP
-                      )}
-                    </span>
-                  </label>
-                </div>
-              )}
-            </div>
-
-            {/* Additional Details*/}
-            <div className="mt-3">
-              <label className="block text-xs font-medium text-gray-700">
-                Additional details
-              </label>
-              <textarea
-                rows={3}
-                value={entry.details}
-                onChange={(e) =>
-                  handleEntryDetailsChange(idx, e.target.value)
-                }
-                className="mt-1 block w-full border rounded-md shadow-sm p-1 text-sm border-gray-300 focus:ring-2 focus:ring-red-500 bg-white"
-                placeholder="Describe current symptoms and issues..."
-              />
-            </div>
-
-            {/*  Validation Message*/}
-            {errors.currentProblems && (
-              <p className="text-xs text-red-600 flex items-center mt-2">
-                <ExclamationCircleIcon className="w-3 h-3 mr-1" />
-                {errors.currentProblems}
-              </p>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  </div>
-)}
+                )}
 
                 {/* Step 6: Screening Tests*/}
                 {currentStep === 6 && (
@@ -2285,97 +3021,111 @@ const getHypertensionCategory = (systolic, diastolic) => {
 
               {/* Navigation Buttons */}
               <div className="mt-8 flex justify-between items-center w-full relative">
-  {/* Previous Button (Left) */}
-  <button
-    type="button"
-    onClick={handlePrevStep}
-    disabled={currentStep === 1}
-    className={`px-6 py-2 rounded-md font-medium transition-all duration-200 flex items-center ${
-      currentStep === 1
-        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-        : "bg-white border border-red-500 text-red-500 hover:bg-red-50"
-    }`}
-  >
-    <svg
-      className="w-4 h-4 mr-2"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M15 19l-7-7 7-7"
-      />
-    </svg>
-    Previous
-  </button>
+                {/* Previous Button (Left) */}
+                <button
+                  type="button"
+                  onClick={handlePrevStep}
+                  disabled={currentStep === 1}
+                  className={`px-6 py-2 rounded-md font-medium transition-all duration-200 flex items-center ${
+                    currentStep === 1
+                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                      : "bg-white border border-red-500 text-red-500 hover:bg-red-50"
+                  }`}
+                >
+                  <svg
+                    className="w-4 h-4 mr-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 19l-7-7 7-7"
+                    />
+                  </svg>
+                  Previous
+                </button>
 
-  {/* Step Indicator (Centered) */}
-  <span className="absolute left-1/2 transform -translate-x-1/2 text-sm text-gray-600">
-    Step {currentStep} of {STEPS.length}
-  </span>
+                {/* Step Indicator (Centered) */}
+                <span className="absolute left-1/2 transform -translate-x-1/2 text-sm text-gray-600">
+                  Step {currentStep} of {STEPS.length}
+                </span>
 
-  {/* Right-side Buttons (Cancel + Next) */}
-  <div className="flex items-center space-x-10">
-    {/* Cancel Button */}
-    <button
-      type="button"
-      onClick={handleCancel}
-      className="px-6 py-2 bg-red-400 text-white rounded-md font-medium hover:bg-red-500 transition-colors duration-200 flex items-center shadow-lg"
-    >
-      <svg
-        className="w-4 h-4 mr-2"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M6 18L18 6M6 6l12 12"
-        />
-      </svg>
-      Cancel
-    </button>
+                {/* Right-side Buttons (Cancel + Next) */}
+                <div className="flex items-center space-x-10">
+                  {/* Cancel Button */}
+                  <button
+                    type="button"
+                    onClick={handleCancel}
+                    className="relative flex items-center justify-center px-6 py-2.5 border-2 border-red-500 
+             text-red-600 font-semibold rounded-xl shadow-sm bg-white
+             hover:bg-red-500 hover:text-white hover:shadow-md transition-all duration-300
+             active:scale-95 group"
+                  >
+                    <svg
+                      className="w-5 h-5 mr-2 transition-transform duration-300 group-hover:rotate-90"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                    <span className="tracking-wide">Cancel</span>
+                  </button>
 
-    {/* Next / Submit Button */}
-    <button
-      type="button"
-      onClick={() => {
-        if (currentStep === STEPS.length) {
-          handleSubmit();
-        } else {
-          handleNextStep();
-        }
-      }}
-      className="px-6 py-2 bg-red-500 text-white rounded-md font-medium hover:bg-red-600 transition-colors duration-200 flex items-center shadow-lg"
-    >
-      {currentStep === STEPS.length ? "Submit" : "Next"}
-      {currentStep !== STEPS.length && (
-        <svg
-          className="w-4 h-4 ml-2"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-            <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M9 5l7 7-7 7"
-          />
-        </svg>
-      )}
-    </button>
-  </div>
-</div>
+                  {/* Next / Submit Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (currentStep === STEPS.length) {
+                        handleSubmit();
+                      } else {
+                        handleNextStep();
+                      }
+                    }}
+                    className="relative flex items-center justify-center px-6 py-2.5 border-2 border-red-500 
+             text-red-600 font-semibold rounded-xl shadow-sm bg-red-200
+             hover:bg-red-500 hover:text-white hover:shadow-md transition-all duration-300
+             active:scale-95 group"
+                  >
+                    {currentStep === STEPS.length ? "Submit" : "Next"}
+                    {currentStep !== STEPS.length && (
+                      <svg
+                        className="w-4 h-4 ml-2"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5l7 7-7 7"
+                        />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
             </form>
           </div>
         </div>
-        
+        <MedicalHistoryChartModal
+          visible={chartModalVisible}
+          onClose={closeChartModal}
+          history={history}
+          fieldName={chartField}
+          index={chartIndex}
+          goPrev={goPrev}
+          goNext={goNext}
+        />
 
         <AppFooter />
       </main>

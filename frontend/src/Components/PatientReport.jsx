@@ -1,4 +1,3 @@
-// src/Components/PatientReport.jsx
 import React from "react";
 import {
   Document,
@@ -9,7 +8,7 @@ import {
   Font,
 } from "@react-pdf/renderer";
 
-// Register a font to use a standard one for better PDF rendering
+// Register Times-Roman font
 Font.register({
   family: "Times-Roman",
   src: "https://cdn.jsdelivr.net/npm/react-pdf-renderer/fonts/Times-Roman.ttf",
@@ -92,7 +91,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   label: {
-    width: 130, // Adjust this width as needed
+    width: 130, 
     fontWeight: "bold",
   },
   value: {
@@ -165,6 +164,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
 });
+
 
 const PatientReport = ({ patient }) => {
   const v = (x, fallback = "—") =>

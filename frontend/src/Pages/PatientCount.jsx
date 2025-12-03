@@ -57,13 +57,15 @@ const PatientCount = () => {
   useEffect(() => {
     const fetchCounts = async () => {
       try {
-        const res = await axios.get("http://localhost:5000/patients/absentCount");
+        const res = await axios.get(
+          "http://localhost:5000/patients/absentCount"
+        );
         const results = {};
-  
+
         res.data.forEach((item) => {
           results[item.department] = item.absentCount;
         });
-  
+
         setCounts(results);
       } catch (err) {
         console.error("Error fetching counts:", err);
@@ -71,10 +73,9 @@ const PatientCount = () => {
         setLoading(false);
       }
     };
-  
+
     fetchCounts();
   }, []);
-  
 
   // Filter departments based on search term
   const filteredDepartments = departments.filter((dept) =>

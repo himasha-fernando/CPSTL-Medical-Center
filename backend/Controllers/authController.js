@@ -6,6 +6,7 @@ const jwt = require("jsonwebtoken");
 const query = util.promisify(db.query).bind(db);
 const JWT_SECRET = process.env.JWT_SECRET || "your_super_secret_key";
 
+// Login
 async function login(req, res) {
   try {
     const { username, password } = req.body;
@@ -57,6 +58,7 @@ async function login(req, res) {
   }
 }
 
+// Register
 async function register(req, res) {
   try {
     const { username, password, profile_image, name } = req.body;

@@ -1,6 +1,5 @@
-// src/Pages/ManagePatients.jsx
 import React, { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
   UserCircleIcon,
@@ -52,7 +51,7 @@ function ManagePatients() {
   const [filteredPatients, setFilteredPatients] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [activeTab] = useState("list"); // 'list' or 'comparison'
+  const [activeTab] = useState("list");
 
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -64,6 +63,7 @@ function ManagePatients() {
   const patientsPerPage = 10;
   const location = useLocation();
   const [popup, setPopup] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (location.state?.message) {
@@ -179,7 +179,7 @@ function ManagePatients() {
       let patientData = null;
       if (patientResp.status === "fulfilled") {
         const p = patientResp.value.data;
-        patientData = p.patient ?? p.data ?? p; // handle different response shapes
+        patientData = p.patient ?? p.data ?? p;
       } else {
         console.error(
           "Failed to fetch patient basic info:",
@@ -226,29 +226,52 @@ function ManagePatients() {
   };
 
   const handleEdit = async (patient) => {
-    // Use patient_id if available, otherwise fall back to id
     const patientId = patient.patient_id ?? patient.id;
-    console.log("Editing patient with ID:", patientId);
+    console.log("Redirecting to Add New Patient page for:", patientId);
 
     try {
+      // Fetch latest medical record
       const res = await axios.get(
         `http://localhost:5000/patientmedicalrecords/${patientId}/latest`
       );
 
-      if (res.data.success) {
-        const fullPatient = {
-          ...patient,
-          ...(res.data.latestRecord || {}),
-        };
+      let latestRecord = res.data?.latestRecord || null;
 
-        setSelectedPatient(fullPatient);
-        setIsEditModalOpen(true);
-      } else {
-        alert("No medical records found for this patient");
+      //  calculate using DOB
+      if (latestRecord && !latestRecord.age) {
+        const calculatedAge = calculateAge(patient.dateOfBirth || patient.dob);
+
+        latestRecord = {
+          ...latestRecord,
+          age: calculatedAge,
+        };
       }
+
+      console.log("Latest record after age processing:", latestRecord);
+
+      // Go to AddNewPatient page with record
+      navigate("/AddNewPatient", {
+        state: {
+          mode: "appendRecord",
+          patient,
+          latestRecord,
+        },
+      });
     } catch (err) {
       console.error("Error fetching patient details:", err);
-      alert("Failed to load patient details");
+
+      //  calculate age using DOB
+      const calculatedAge = calculateAge(patient.dateOfBirth || patient.dob);
+
+      navigate("/AddNewPatient", {
+        state: {
+          mode: "appendRecord",
+          patient,
+          latestRecord: {
+            age: calculatedAge,
+          },
+        },
+      });
     }
   };
 
@@ -522,13 +545,7 @@ function ManagePatients() {
                           >
                             <PencilIcon className="w-5 h-5" />
                           </button>
-                          <button
-                            onClick={() => handleCompareMetrics(patient)}
-                            className="p-1 text-purple-600 hover:bg-purple-100 rounded transition-colors"
-                            title="Compare Health Metrics"
-                          >
-                            <ChartBarIcon className="w-5 h-5" />
-                          </button>
+
                           <button
                             onClick={() => handleDelete(patient.id)}
                             className="p-1 text-red-600 hover:bg-red-100 rounded transition-colors"
@@ -728,14 +745,6 @@ function ManagePatients() {
                     </div>
                   )}
                 </div>
-
-                <button
-                  onClick={() => handleCompareMetrics(patient)}
-                  className="w-full bg-gradient-to-r from-red-500 to-red-600 text-white px-4 py-2 rounded-lg hover:from-red-600 hover:to-red-700 transition-colors flex items-center justify-center"
-                >
-                  <ChartBarIcon className="w-4 h-4 mr-2" />
-                  View Comparison
-                </button>
               </div>
             </div>
           ))}
@@ -827,12 +836,6 @@ function ManagePatients() {
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         onSave={handleSavePatient}
-      />
-
-      <PatientComparisonModal
-        patient={selectedPatient}
-        isOpen={isComparisonModalOpen}
-        onClose={() => setIsComparisonModalOpen(false)}
       />
     </div>
   );

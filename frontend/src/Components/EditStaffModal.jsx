@@ -1,4 +1,3 @@
-// src/Components/EditStaffModal.jsx
 import React, { useEffect, useState } from "react";
 import {
   UserCircleIcon,
@@ -61,6 +60,7 @@ const EditStaffModal = ({ staff, isOpen, onClose, onSave }) => {
     }
   };
 
+  // Handle image upload
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -75,6 +75,7 @@ const EditStaffModal = ({ staff, isOpen, onClose, onSave }) => {
     }
   };
 
+  // Validation
   const validateForm = () => {
     const errors = {};
 

@@ -17,6 +17,7 @@ import {
   BeakerIcon,
 } from "@heroicons/react/24/solid";
 
+// View Patient Modal
 const ViewPatientModal = ({ patient, isOpen, onClose }) => {
   if (!isOpen || !patient) return null;
 
@@ -26,8 +27,11 @@ const ViewPatientModal = ({ patient, isOpen, onClose }) => {
     const birthDate = new Date(dob);
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
-  
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+
+    if (
+      monthDiff < 0 ||
+      (monthDiff === 0 && today.getDate() < birthDate.getDate())
+    ) {
       age--;
     }
     return age >= 0 ? age : 0;
@@ -50,15 +54,15 @@ const ViewPatientModal = ({ patient, isOpen, onClose }) => {
     }
   };
 
-  // PDF Export (red & white style)
+  // PDF Export
   const exportToPDF = async () => {
     try {
-      const patientId = patient.patient_id; 
+      const patientId = patient.patient_id;
       if (!patientId) {
         alert("Patient ID not found.");
         return;
       }
-  
+
       const latestRecordRes = await axios.get(
         `http://localhost:5000/patientmedicalrecords/${patientId}/latest`
       );
@@ -374,14 +378,15 @@ setTimeout(function(){ window.close(); }, 300);
       printWindow.document.close();
       setTimeout(() => {
         alert("PDF generated successfully!");
-      }, 500); 
+      }, 500);
     } catch (error) {
       console.error("Error generating PDF:", error);
       alert("Error generating PDF. Please try again.");
     }
   };
 
-  const age = calculateAge(patient.dateOfBirth); // Calculate age once here
+  // Calculate age once here
+  const age = calculateAge(patient.dateOfBirth);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">

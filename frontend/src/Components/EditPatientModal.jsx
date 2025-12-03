@@ -19,13 +19,13 @@ const familyRelations = ["Father", "Mother", "Siblings"];
 const EditPatientModal = ({ patient, isOpen, onClose, onSave }) => {
   const [editedPatient, setEditedPatient] = useState({});
 
-// Helper to calculate BMI
-const calculateBMI = (height, weight) => {
-  if (!height || !weight) return "";
-  const heightInMeters = height / 100; // Convert cm to meters
-  const bmi = weight / (heightInMeters * heightInMeters);
-  return bmi ? bmi.toFixed(2) : "";
-};
+  //calculate BMI
+  const calculateBMI = (height, weight) => {
+    if (!height || !weight) return "";
+    const heightInMeters = height / 100; // Convert cm to meters
+    const bmi = weight / (heightInMeters * heightInMeters);
+    return bmi ? bmi.toFixed(2) : "";
+  };
 
   useEffect(() => {
     if (editedPatient.height && editedPatient.weight) {
@@ -34,7 +34,6 @@ const calculateBMI = (height, weight) => {
     }
   }, [editedPatient.height, editedPatient.weight]);
 
-  
   // Initialize patient info
   useEffect(() => {
     if (patient) {
@@ -58,7 +57,7 @@ const calculateBMI = (height, weight) => {
         breastExamination: patient.breastExamination || "",
         papSmear: patient.papSmear || "",
         alcoholConsumption: patient.alcoholConsumption || "",
-        smokingingHabits: patient.smokingingHabits || "",
+        smokingHabits: patient.smokingHabits || "",
         treatmentPlan: patient.treatmentPlan || "",
         smokingCessationAdvice: patient.smokingCessationAdvice || "",
         alcoholAbuseAdvice: patient.alcoholAbuseAdvice || "",
@@ -112,7 +111,6 @@ const calculateBMI = (height, weight) => {
         .then((res) => {
           const recordData = res.data?.latestRecord || {};
           setLatestRecord(recordData);
-
           setEditedPatient((prev) => ({
             ...prev,
             ...recordData,
@@ -218,7 +216,7 @@ const calculateBMI = (height, weight) => {
         breastExamination: editedPatient.breastExamination || "",
         papSmear: editedPatient.papSmear || "",
         alcoholConsumption: editedPatient.alcoholConsumption || "",
-        smokingHabits: editedPatient.smokingingHabits || "",
+        smokingHabits: editedPatient.smokingHabits || "",
         treatmentPlan: editedPatient.treatmentPlan || "",
         smokingCessationAdvice: editedPatient.smokingCessationAdvice || "",
         alcoholAbuseAdvice: editedPatient.alcoholAbuseAdvice || "",
@@ -356,22 +354,22 @@ const calculateBMI = (height, weight) => {
                     {field.toUpperCase()}
                   </label>
                   {field === "bmi" ? (
-  <input
-    type="number"
-    step="0.1"
-    value={editedPatient.bmi || ""}
-    readOnly
-    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed"
-  />
-) : (
-  <input
-    type="number"
-    step={field === "bmi" ? "0.1" : "1"}
-    value={editedPatient[field] || ""}
-    onChange={(e) => handleInputChange(field, e.target.value)}
-    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-  />
-)}
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={editedPatient.bmi || ""}
+                      readOnly
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed"
+                    />
+                  ) : (
+                    <input
+                      type="number"
+                      step={field === "bmi" ? "0.1" : "1"}
+                      value={editedPatient[field] || ""}
+                      onChange={(e) => handleInputChange(field, e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  )}
                 </div>
               ))}
             </div>
@@ -523,9 +521,9 @@ const calculateBMI = (height, weight) => {
                 </label>
                 <input
                   type="text"
-                  value={editedPatient.smokingingHabits || ""}
+                  value={editedPatient.smokingHabits || ""}
                   onChange={(e) =>
-                    handleInputChange("smokingingHabits", e.target.value)
+                    handleInputChange("smokingHabits", e.target.value)
                   }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 />

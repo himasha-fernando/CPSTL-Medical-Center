@@ -23,51 +23,77 @@ const formatDateTime = (dateStr) => {
 const addMedicalRecord = (patientId, data, callback) => {
   const sql = `
     INSERT INTO patientmedicalrecords
-    (patient_id, age, height, weight, bmi, waist, rbs, fbs, bp, visionLeft, visionRight,
-     breastExamination, papSmear, alcoholConsumption, smokingHabits, treatmentPlan,
-     smokingCessationAdvice, alcoholAbuseAdvice, patientHistory,
-     familyHistoryFather, familyHistoryMother, familyHistorySiblings,otherPatientConditions, otherFatherConditions, otherMotherConditions, otherSiblingsConditions,
-   currentProblems, visitDate)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (patient_id,
+      visitDate,
+      age,
+      height,
+      weight,
+      bmi,
+      waist,
+      rbs,
+      fbs,
+      systolicBP,
+      diastolicBP,
+      visionLeft,
+      visionRight,
+      breastExamination,
+      papSmear,
+      alcoholConsumption,
+      alcoholSummary,
+      smokingHabits,
+      smokingSummary,
+      treatmentPlan,
+      smokingCessationAdvice,
+      alcoholAbuseAdvice,
+      patientHistory,
+      otherPatientConditions,
+      familyHistoryFather,
+      otherFatherConditions,
+      familyHistoryMother,
+      otherMotherConditions,
+      familyHistorySiblings,
+      otherSiblingsConditions,
+      currentProblems
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   const values = [
     patientId,
-    toNullable(data.age, true),
-    toNullable(data.height, true),
-    toNullable(data.weight, true),
-    toNullable(data.bmi, true),
-    toNullable(data.waist, true),
-    toNullable(data.rbs, true),
-    toNullable(data.fbs, true),
-    toNullable(data.bp),
-    toNullable(data.visionLeft),
-    toNullable(data.visionRight),
-    toNullable(data.breastExamination),
-    toNullable(data.papSmear),
-    toNullable(data.alcoholConsumption),
-    toNullable(data.smokingHabits),
-    toNullable(data.treatmentPlan),
-    toNullable(data.smokingCessationAdvice),
-    toNullable(data.alcoholAbuseAdvice),
-
-    // Convert patientHistory, familyHistoryFather, familyHistoryMother, familyHistorySiblings to JSON
+    data.visitDate
+      ? formatDateTime(data.visitDate)
+      : formatDateTime(new Date()),
+    data.age ?? null,
+    data.height ?? null,
+    data.weight ?? null,
+    data.bmi ?? null,
+    data.waist ?? null,
+    data.rbs ?? null,
+    data.fbs ?? null,
+    data.systolicBP ?? null,
+    data.diastolicBP ?? null,
+    data.visionLeft ?? null,
+    data.visionRight ?? null,
+    data.breastExamination ?? null,
+    data.papSmear ?? null,
+    data.alcoholConsumption ?? null,
+    data.alcoholSummary ?? null,
+    data.smokingHabits ?? null,
+    data.smokingSummary ?? null,
+    data.treatmentPlan ?? null,
+    data.smokingCessationAdvice ?? null,
+    data.alcoholAbuseAdvice ?? null,
     data.patientHistory ? JSON.stringify(data.patientHistory) : null,
+    data.otherPatientConditions ?? null,
     data.familyHistoryFather ? JSON.stringify(data.familyHistoryFather) : null,
+    data.otherFatherConditions ?? null,
     data.familyHistoryMother ? JSON.stringify(data.familyHistoryMother) : null,
+    data.otherMotherConditions ?? null,
     data.familyHistorySiblings
       ? JSON.stringify(data.familyHistorySiblings)
       : null,
-
-    toNullable(data.otherPatientConditions),
-    toNullable(data.otherFatherConditions),
-    toNullable(data.otherMotherConditions),
-    toNullable(data.otherSiblingsConditions),
-    toNullable(data.currentProblems),
-
-    formatDateTime(data.visitDate || new Date()),
+    data.otherSiblingsConditions ?? null,
+    data.currentProblems ?? null,
   ];
-
   db.query(sql, values, callback);
 };
 

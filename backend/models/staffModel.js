@@ -1,6 +1,8 @@
+//const { getUsers, getAllUsers } = require("../Controllers/staffController");
 const db = require("../db");
 
 const Staff = {
+  //create staff
   create: (staffData, callback) => {
     const sql = `INSERT INTO staff 
       (id, epfNumber, name, designation, experience, gender, profileImage, contactNo, primarySpecialization, secondarySpecialization, medicalLicenseNumber, licenseExpiryDate, qualifications, status)
@@ -29,7 +31,7 @@ const Staff = {
     db.query("SELECT * FROM staff", callback);
   },
   //get staff by id
-  getById: (id, callback) => {
+  getStaffById: (id, callback) => {
     db.query("SELECT * FROM staff WHERE id = ?", [id], callback);
   },
   //delete staff by id
@@ -77,6 +79,40 @@ const Staff = {
   getCount: (callback) => {
     const sql = "SELECT COUNT(*) AS count FROM staff";
     db.query(sql, callback);
+  },
+
+  //get all users
+  getAllUsers: (callback) => {
+    const sql = "SELECT * FROM users";
+    db.query(sql, callback);
+  },
+
+  //find user by username
+  findByUsername: (username, callback) => {
+    const sql = "SELECT * FROM users WHERE username = ? LIMIT 1";
+    db.query(sql, [username], (err, results) => {
+      if (err) return callback(err);
+      callback(null, results[0]);
+    });
+  },
+
+  //find staff by name
+  findByName: (name, callback) => {
+    const sql = "SELECT * FROM staff WHERE name = ? LIMIT 1";
+    db.query(sql, [name], (err, results) => {
+      if (err) return callback(err);
+      callback(null, results[0]);
+    });
+  },
+
+  //find staff by name and epf
+  findByNameAndEpf: (name, epfNumber, callback) => {
+    const sql =
+      "SELECT * FROM staff WHERE TRIM(name) = TRIM(?) AND TRIM(epfNumber) = TRIM(?) LIMIT 1";
+    db.query(sql, [name, epfNumber], (err, results) => {
+      if (err) return callback(err);
+      callback(null, results[0]);
+    });
   },
 };
 

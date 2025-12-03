@@ -1,7 +1,7 @@
-// frontend/src/pages/Login.jsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { jwtDecode } from "jwt-decode";
 
 // LoginCard component
 const LoginCard = ({ children }) => {
@@ -31,6 +31,7 @@ const LoginForm = ({ onLoginSuccess }) => {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -44,28 +45,54 @@ const LoginForm = ({ onLoginSuccess }) => {
     }
 
     try {
-      const response = await axios.post("http://localhost:5000/users/login", {
-        username,
-        password,
-      });
+      const endpoint = username.toUpperCase().startsWith("EPF")
+        ? "http://localhost:5000/auth/admin/login"
+        : "http://localhost:5000/auth/patient/login";
+
+      const response = await axios.post(endpoint, { username, password });
       const data = response.data;
+
       console.log("Login response:", data);
 
-      if (data.status === "success") {
-        // Save JWT token
+      if (data.token) {
+        // Save JWT token and role
         localStorage.setItem("token", data.token);
+        localStorage.setItem("role", data.role || "user");
 
-        // Save user data directly
+        // Decode JWT to get user id
+        let decoded;
+        try {
+          decoded = jwtDecode(data.token);
+        } catch (err) {
+          console.error("Error decoding token:", err);
+          setMessage("Login failed: invalid token");
+          setLoading(false);
+          return;
+        }
+
+        const userId = decoded.id;
+        localStorage.setItem("userId", userId);
+
+        // Save full user object
         localStorage.setItem("userData", JSON.stringify(data.user));
 
-        // Notify parent component
-        onLoginSuccess(data.token);
+        setMessage("Login successful!");
+
+        // Navigate based on role
+        if (data.role === "admin") navigate("/Dashboard");
+        else if (data.role === "patient" || data.role === "staff")
+          navigate("/UserDashboard");
+        else navigate("/");
       } else {
         setMessage(data.message || "Login failed. Please try again.");
       }
     } catch (error) {
-      setMessage("An error occurred. Please try again later.");
-      console.error("Network or unexpected error:", error);
+      if (error.response && error.response.data) {
+        setMessage(error.response.data.message || "Login failed.");
+      } else {
+        setMessage("An error occurred. Please try again later.");
+      }
+      console.error("Login error:", error);
     } finally {
       setLoading(false);
     }

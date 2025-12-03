@@ -1,4 +1,3 @@
-// src/App.js
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
 import Login from "./Pages/Login";
@@ -10,13 +9,16 @@ import ManageStaff from "./Pages/ManageStaff";
 import AddStaff from "./Pages/AddStaff";
 import RegisterPatient from "./Pages/RegisterPatient";
 import PatientCount from "./Pages/PatientCount";
+import UserDashboard from "./Pages/UserDashboard";
+import StaffProfilePage from "./Pages/StaffProfilePage";
+import MyReports from "./Pages/MyReports";
 
 function App() {
   return (
     <Router>
       <div>
         <Routes>
-          {/* Only the public login route is included */}
+          
           <Route path="/" element={<Login />} />
           <Route path="/AddNewPatient" element={<AddNewPatient />} />
           <Route path="/ProfilePage" element={<ProfilePage />} />
@@ -26,6 +28,10 @@ function App() {
           <Route path="/AddStaff" element={<AddStaff />} />
           <Route path="/RegisterPatient" element={<RegisterPatient />} />
           <Route path="/PatientCount" element={<PatientCount />} />
+          <Route path="/UserDashboard" element={<UserDashboard/>}/>
+          <Route path="/StaffProfilePage" element={<StaffProfilePage/>}/>
+          <Route path="/MyReports" element={<MyReports/>}/>
+          
         </Routes>
       </div>
     </Router>

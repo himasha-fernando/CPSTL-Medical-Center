@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../utils/api";
 import { jwtDecode } from "jwt-decode";
+import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 
 // LoginCard component
 const LoginCard = ({ children }) => {
@@ -29,9 +30,14 @@ const LoginCard = ({ children }) => {
 const LoginForm = ({ onLoginSuccess }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+    const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -44,15 +50,25 @@ const LoginForm = ({ onLoginSuccess }) => {
       return;
     }
 
+     try {
+    // admin login first
+    let response;
     try {
-      const endpoint = username.toUpperCase().startsWith("EPF")
-        ? "http://localhost:5000/auth/admin/login"
-        : "http://localhost:5000/auth/patient/login";
+      response = await api.post(
+  "/auth/admin/login",
+  { username, password }
+);
+    } catch (adminError) {
+      //patient login
+      response = await api.post(
+        "/auth/patient/login",
+        { username, password }
+      );
+      
+    }
 
-      const response = await axios.post(endpoint, { username, password });
-      const data = response.data;
-
-      console.log("Login response:", data);
+    const data = response.data;
+    console.log("Login response:", data);
 
       if (data.token) {
         // Save JWT token and role
@@ -119,24 +135,27 @@ const LoginForm = ({ onLoginSuccess }) => {
         />
       </div>
 
-      <div>
-        <label
-          htmlFor="password"
-          className="block text-sm font-medium text-gray-700 mb-1"
-        >
-          Password
-        </label>
-        <input
-          type="password"
-          id="password"
-          name="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-          placeholder="Enter your password"
-          required
-        />
-      </div>
+      <div className="relative">
+  <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+    Password
+  </label>
+  <input
+    type={showPassword ? "text" : "password"}
+    id="password"
+    value={password}
+    onChange={(e) => setPassword(e.target.value)}
+    className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm pr-10"
+    placeholder="Enter your password"
+    required
+  />
+  <button
+    type="button"
+    onClick={() => setShowPassword(!showPassword)}
+    className="absolute top-8 right-3 text-gray-500 hover:text-gray-700"
+  >
+    {showPassword ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
+  </button>
+</div>
 
       <div className="flex items-center justify-between">
         <div className="flex items-center">

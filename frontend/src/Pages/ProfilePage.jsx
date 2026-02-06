@@ -1,5 +1,6 @@
-import axios from "axios";
+import api from "../utils/api";
 import React, { useState, useEffect, useRef } from "react";
+import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 import { useNavigate } from "react-router-dom";
 import AppSidebar from "../Components/AppSidebar";
 import AppHeader from "../Components/AppHeader";
@@ -15,6 +16,17 @@ function ProfilePage() {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
 
+  const [showChangePassword, setShowChangePassword] = useState(false);
+const [epfNo, setEpfNo] = useState("");
+const [newPassword, setNewPassword] = useState("");
+const [confirmPassword, setConfirmPassword] = useState("");
+const [passwordError, setPasswordError] = useState("");
+const [passwordSuccess, setPasswordSuccess] = useState("");
+const [showNewPassword, setShowNewPassword] = useState(false);
+const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+
+
   useEffect(() => {
     if (!token || !userId || !role) {
       // redirect to login if no token
@@ -27,10 +39,10 @@ function ProfilePage() {
       try {
         const endpoint =
           role === "admin"
-            ? `http://localhost:5000/auth/admin/${userId}`
-            : `http://localhost:5000/auth/patient/${userId}`;
+            ? `/auth/admin/${userId}`
+            : `/auth/patient/${userId}`;
 
-        const response = await axios.get(endpoint, {
+        const response = await api.get(endpoint, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setUserProfile(response.data);
@@ -200,6 +212,16 @@ function ProfilePage() {
                       label="Role"
                       value={userProfile.role_type || "Doctor"}
                     />
+                    <button
+  onClick={() => {
+    setShowChangePassword(true);
+    setEpfNo(userProfile.epfNumber || userProfile.username || "");
+  }}
+  className="mt-4 px-5 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition"
+>
+  Change Password
+</button>
+
                   </div>
                 </div>
               </div>
@@ -216,6 +238,143 @@ function ProfilePage() {
             </div>
           </div>
         </div>
+
+        {/* Change Password Modal */}
+        {showChangePassword && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+    <div className="bg-white w-full max-w-md rounded-xl shadow-xl p-6 relative">
+
+      {/* Close Icon */}
+      <button
+        onClick={() => {
+          setShowChangePassword(false);
+          setPasswordError("");
+          setPasswordSuccess("");
+        }}
+        className="absolute top-3 right-3 text-gray-500 hover:text-red-500 text-xl"
+      >
+        ✕
+      </button>
+
+      <h3 className="text-xl font-bold text-gray-800 mb-4 text-center">
+        Change Password
+      </h3>
+
+      {/* EPF Number */}
+      <div className="mb-3">
+        <label className="text-sm text-gray-600">EPF Number</label>
+        <input
+          type="text"
+          value={epfNo}
+          readOnly
+          className="w-full mt-1 px-3 py-2 border rounded-md bg-gray-100"
+        />
+      </div>
+
+{/* New Password */}
+<div className="mb-3 relative">
+  <label className="text-sm text-gray-600">New Password</label>
+  <input
+    type={showNewPassword ? "text" : "password"}
+    value={newPassword}
+    onChange={(e) => setNewPassword(e.target.value)}
+    className="w-full mt-1 px-3 py-2 border rounded-md focus:ring-2 focus:ring-indigo-400 pr-10"
+  />
+  <button
+    type="button"
+    onClick={() => setShowNewPassword(!showNewPassword)}
+    className="absolute top-8 right-3 text-gray-500 hover:text-gray-700"
+  >
+    {showNewPassword ? (
+      <EyeSlashIcon className="h-5 w-5" />
+    ) : (
+      <EyeIcon className="h-5 w-5" />
+    )}
+  </button>
+</div>
+
+      {/* Confirm Password */}
+<div className="mb-3 relative">
+  <label className="text-sm text-gray-600">Confirm Password</label>
+  <input
+    type={showConfirmPassword ? "text" : "password"}
+    value={confirmPassword}
+    onChange={(e) => setConfirmPassword(e.target.value)}
+    className="w-full mt-1 px-3 py-2 border rounded-md focus:ring-2 focus:ring-indigo-400 pr-10"
+  />
+  <button
+    type="button"
+    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+    className="absolute top-8 right-3 text-gray-500 hover:text-gray-700"
+  >
+    {showConfirmPassword ? (
+      <EyeSlashIcon className="h-5 w-5" />
+    ) : (
+      <EyeIcon className="h-5 w-5" />
+    )}
+  </button>
+</div>
+
+      {/* Messages */}
+      {passwordError && (
+        <p className="text-red-600 text-sm mb-2">{passwordError}</p>
+      )}
+      {passwordSuccess && (
+        <p className="text-green-600 text-sm mb-2">{passwordSuccess}</p>
+      )}
+
+      {/* Save Button */}
+      <button
+        onClick={async () => {
+          if (!newPassword || !confirmPassword) {
+            setPasswordError("All fields are required");
+            return;
+          }
+
+          if (newPassword !== confirmPassword) {
+            setPasswordError("Passwords do not match");
+            return;
+          }
+
+             try {
+      // Determine identifier based on role
+      const identifier =
+        role === "admin"
+          ? userProfile.username   // admin uses username
+          : userProfile.epfNumber; // patient uses EPF number
+
+      await api.put(
+        "/auth/change-password",
+        {
+          userType: role,   // admin or patient
+          identifier,       
+          newPassword,
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+            setPasswordSuccess("Password updated successfully");
+            setPasswordError("");
+            setNewPassword("");
+            setConfirmPassword("");
+
+            setTimeout(() => {
+              setShowChangePassword(false);
+            }, 1500);
+          } catch (err) {
+            setPasswordError("Failed to update password");
+          }
+        }}
+        className="w-full mt-4 bg-indigo-600 text-white py-2 rounded-md hover:bg-indigo-700 transition"
+      >
+        Save Password
+      </button>
+    </div>
+  </div>
+)}
+
         <AppFooter />
       </main>
     </div>

@@ -1,13 +1,14 @@
-// src/Components/AppSidebarNav.jsx
 import React from "react";
 import { Link } from "react-router-dom";
-import { Home, UserCheck, UserPlus, BarChart3, FileText } from "lucide-react";
+import { Home, UserCheck, UserPlus, BarChart3, FileText, CalendarClock } from "lucide-react";
 
 const adminNavItems = [
   { name: "Dashboard", icon: Home, link: "/Dashboard" },
   { name: "Manage Patients", icon: UserCheck, link: "/ManagePatients" },
   { name: "Manage Staff", icon: UserPlus, link: "/ManageStaff" },
   { name: "Patient Count", icon: BarChart3, link: "/PatientCount" },
+  { name: "Schedule", icon: CalendarClock, link: "/Schedule" },
+  { name: "Reports", icon: FileText, link: "/FunctionReports" },
 ];
 
 const userNavItems = [

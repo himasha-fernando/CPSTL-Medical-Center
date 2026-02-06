@@ -3,6 +3,7 @@ const db = require("../db")
 const router = express.Router();
 const {
   createPatient,
+  getNextRegistrationNo,
   getAllPatients,
   getPatientById,
   deletePatient,
@@ -10,12 +11,18 @@ const {
   checkPatient,
   getAbsentPatientCountByDepartment,
   searchPatient,
-  checkEPF
+  checkEPF,
+  downloadAbsentPatientsExcel,
+  getAbsentPatientsByDepartmentJSON,
+  getPatientCountDepartmentWise
 } = require("../Controllers/patientController");
 
 
 // Add new patient
 router.post("/add", createPatient);
+
+//generate Reg no
+router.get("/next-registration",getNextRegistrationNo);
 
 // Get all patients
 router.get("/", getAllPatients);
@@ -35,10 +42,19 @@ router.get("/check-epf/:epfNo", checkEPF);
 //search patient by REG or EPF
 router.get("/search", searchPatient);
 
+//Absent patient list
+router.get("/absentPatients/:department",getAbsentPatientsByDepartmentJSON);
+
+// Download absent patients
+router.get("/absentPatients/excel/:department",downloadAbsentPatientsExcel);
+
 // Get patient by id
 router.get("/:id", getPatientById);
 
 // Delete patient
 router.delete("/delete/:id", deletePatient);
+
+// Department-wise patient count
+router.get("/count/department-wise", getPatientCountDepartmentWise);
 
 module.exports = router;

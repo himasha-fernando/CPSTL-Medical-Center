@@ -12,6 +12,8 @@ import PatientCount from "./Pages/PatientCount";
 import UserDashboard from "./Pages/UserDashboard";
 import StaffProfilePage from "./Pages/StaffProfilePage";
 import MyReports from "./Pages/MyReports";
+import Schedule from "./Pages/Schedule";
+import FunctionReports from "./Pages/FunctionReports";
 
 function App() {
   return (
@@ -31,6 +33,8 @@ function App() {
           <Route path="/UserDashboard" element={<UserDashboard/>}/>
           <Route path="/StaffProfilePage" element={<StaffProfilePage/>}/>
           <Route path="/MyReports" element={<MyReports/>}/>
+          <Route path="/Schedule" element={<Schedule/>}/>
+          <Route path="/FunctionReports" element={<FunctionReports/>}/>
           
         </Routes>
       </div>

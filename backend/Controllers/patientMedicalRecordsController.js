@@ -1,5 +1,6 @@
-const recordModel = require("../models/patientMedicalRecordsModel");
+const recordModel = require("../Models/patientMedicalRecordsModel");
 const patientModel = require("../Models/patientModel");
+const db = require("../db");
 
 // Add medical record
 const addMedicalRecord = (req, res) => {
@@ -83,7 +84,7 @@ const getLatestMedicalRecordByPatientId = (req, res) => {
     latest.familyHistoryFather = safeParseJSON(latest.familyHistoryFather);
     latest.familyHistoryMother = safeParseJSON(latest.familyHistoryMother);
     latest.familyHistorySiblings = safeParseJSON(
-      latest.familyHistorySiblings ?? latest.familyHistorySibling
+      latest.familyHistorySiblings ?? latest.familyHistorySibling,
     );
 
     res.json({
@@ -152,7 +153,7 @@ const getPatientMonthlyMetrics = (req, res) => {
       const recordForMonth = records.find((r) =>
         r.visitDate?.toISOString
           ? r.visitDate.toISOString().slice(0, 7) === monthStr
-          : r.visitDate?.slice(0, 7) === monthStr
+          : r.visitDate?.slice(0, 7) === monthStr,
       );
 
       const data = {
@@ -163,7 +164,7 @@ const getPatientMonthlyMetrics = (req, res) => {
       };
 
       metrics.forEach(
-        (m) => (data[m] = recordForMonth ? recordForMonth[m] : null)
+        (m) => (data[m] = recordForMonth ? recordForMonth[m] : null),
       );
       monthlyData.push(data);
     }
@@ -188,11 +189,11 @@ const getPatientYearlyMetrics = (req, res) => {
       const yearRecords = records.filter((r) =>
         r.visitDate?.getFullYear
           ? r.visitDate.getFullYear() === year
-          : new Date(r.visitDate).getFullYear() === year
+          : new Date(r.visitDate).getFullYear() === year,
       );
 
       const latestRecord = yearRecords.sort(
-        (a, b) => new Date(b.visitDate) - new Date(a.visitDate)
+        (a, b) => new Date(b.visitDate) - new Date(a.visitDate),
       )[0];
 
       const data = { year: year.toString() };
@@ -204,6 +205,175 @@ const getPatientYearlyMetrics = (req, res) => {
   });
 };
 
+// GET today's medical records
+const getTodayRecords = (req, res) => {
+  recordModel.getTodayRecords((err, results) => {
+    if (err) {
+      console.error("Error fetching today's records:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to fetch today's records",
+      });
+    }
+
+    res.json({
+      success: true,
+      records: results,
+    });
+  });
+};
+
+//get all medical visit dates
+const getAllVisitDates = (req, res) => {
+  const sql = `
+    SELECT patient_id, DATE(visitDate) AS visitDate
+    FROM patientmedicalrecords
+  `;
+
+  db.query(sql, (err, results) => {
+    if (err) return res.status(500).json(err);
+    res.json(results);
+  });
+};
+
+// Get dashboard high risk stats
+const getDashboardHighRiskStats = (req, res) => {
+  recordModel.getLatestMedicalStats((err, rows) => {
+    if (err) {
+      console.error("Dashboard risk error:", err);
+      return res.status(500).json({ message: "DB error" });
+    }
+
+    if (!rows || rows.length === 0) {
+      return res.json({ data: [] });
+    }
+
+    // BMI
+    const bmiCandidate = rows
+      .filter((r) => r.bmi !== null)
+      .reduce((max, r) => (r.bmi > max.bmi ? r : max));
+
+    //BLOOD SUGAR (RBS / FBS logic)
+    const sugarRows = rows
+      .map((r) => ({
+        ...r,
+        sugarValue: Math.max(r.rbs || 0, r.fbs || 0),
+      }))
+      .filter((r) => r.sugarValue > 0);
+
+    const sugarCandidate = sugarRows.reduce((max, r) =>
+      r.sugarValue > max.sugarValue ? r : max,
+    );
+
+    // BLOOD PRESSURE
+    const bpCandidate = rows
+      .filter((r) => r.systolicBP >= 50 && r.diastolicBP >= 50)
+      .map((r) => ({
+        ...r,
+        bpRisk: Math.max(r.systolicBP, r.diastolicBP),
+      }))
+      .reduce((max, r) => (r.bpRisk > max.bpRisk ? r : max));
+
+    res.json({
+      data: [
+        {
+          type: "BMI",
+          name: bmiCandidate.name,
+          epfNo: bmiCandidate.epfNo,
+          department: bmiCandidate.department,
+          value: bmiCandidate.bmi,
+        },
+        {
+          type: "SUGAR",
+          name: sugarCandidate.name,
+          epfNo: sugarCandidate.epfNo,
+          department: sugarCandidate.department,
+          value: sugarCandidate.sugarValue,
+        },
+        {
+          type: "BP",
+          name: bpCandidate.name,
+          epfNo: bpCandidate.epfNo,
+          department: bpCandidate.department,
+          value: `${bpCandidate.systolicBP}/${bpCandidate.diastolicBP}`,
+        },
+      ],
+    });
+  });
+};
+
+// Get daily stats
+const getDailyPatientStats = (req, res) => {
+  recordModel.getDailyPatientStats((err, results) => {
+    if (err)
+      return res.status(500).json({ success: false, error: err.message });
+    res.json({ success: true, data: results });
+  });
+};
+
+// Get all patients with latest medical record
+const getAllPatientsWithLatestRecord = (req, res) => {
+  const sql = `
+    SELECT 
+      p.id,
+      p.name,
+      p.epfNo,
+      p.department,
+      p.gender,
+      p.dateOfBirth,
+      p.contactNo,
+
+      m.id AS recordId,
+      m.bmi,
+      m.waist,
+      m.systolicBP,
+      m.diastolicBP,
+      m.rbs,
+      m.fbs,
+      m.visionLeft,
+      m.visionRight,
+      m.visitDate AS visitDate
+
+    FROM patients p
+    INNER JOIN patientmedicalrecords m
+      ON m.id = (
+        SELECT pm.id
+        FROM patientmedicalrecords pm
+        WHERE pm.patient_id = p.id
+        ORDER BY pm.visitDate DESC
+        LIMIT 1
+      )
+  `;
+
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ success: false, error: err });
+    }
+    res.json(results);
+  });
+};
+
+// Get HIGH-RISK patient COUNTS (all departments)
+const getDashboardHighRiskCounts = (req, res) => {
+  recordModel.getHighRiskPatientCounts((err, rows) => {
+    if (err) {
+      console.error("High-risk count error:", err);
+      return res.status(500).json({ message: "DB error" });
+    }
+
+    const row = rows[0] || {};
+
+    res.json({
+      data: {
+        BMI: row.highBMI || 0,
+        BP: row.highBP || 0,
+        SUGAR: row.highSugar || 0,
+      },
+    });
+  });
+};
+
 module.exports = {
   addMedicalRecord,
   getMedicalRecords,
@@ -212,7 +382,13 @@ module.exports = {
   getTodayPatientCount,
   getMonthlyPatientStats,
   getYearlyPatientStats,
+  getDailyPatientStats,
   getPatientMonthlyMetrics,
   getPatientYearlyMetrics,
   getPatientHistory,
+  getTodayRecords,
+  getAllVisitDates,
+  getDashboardHighRiskStats,
+  getDashboardHighRiskCounts,
+  getAllPatientsWithLatestRecord,
 };

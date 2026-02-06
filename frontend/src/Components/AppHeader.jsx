@@ -145,7 +145,10 @@ const AppHeader = ({ onMenuToggle, isSidebarOpen }) => {
         </button>
 
         {isModalOpen && (
-          <RegisterPatient onClose={() => setIsModalOpen(false)} />
+  <RegisterPatient 
+    onClose={() => setIsModalOpen(false)} 
+    isOpen={isModalOpen}  
+  />
         )}
 
         {/* Add New Patient Button */}

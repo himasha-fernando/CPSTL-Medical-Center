@@ -42,7 +42,7 @@ const AppSidebar = ({ isSidebarOpen, onCloseSidebar, currentPage }) => {
         >
           <div className="flex items-center">
             <img
-              src="public/medi.jpeg"
+              src="/cpstl.png"
               alt="CPSTL MedRecord Logo"
               className={`object-cover transition-all duration-300 ${
                 isSidebarOpen ? "w-19 h-20 mr-2" : "w-20 h-30"

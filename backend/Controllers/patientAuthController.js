@@ -2,11 +2,10 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const patientModel = require("../Models/patientModel");
 const staffModel = require("../models/staffModel");
-
-const JWT_SECRET = "SECRETKEY123";
+const JWT_SECRET = process.env.JWT_SECRET;
 
 module.exports = {
-  // Patient login
+  // Patient ,Staff login
   patientLogin: (req, res) => {
     const { username, password } = req.body;
 
@@ -14,24 +13,25 @@ module.exports = {
       return res.status(400).json({ message: "Missing username or password" });
     }
 
-    // Check if username exists in patients table first
-    patientModel.findByName(username, (err, patient) => {
-      if (err)
-        return res
-          .status(500)
-          .json({ message: "Server error", error: err.message });
+    // Check PATIENT
+    patientModel.findByEpfNo(username, async (err, patient) => {
+      if (err) {
+        return res.status(500).json({ message: "Server error" });
+      }
 
       if (patient) {
-        // Login as patient
-        if (password !== patient.epfNo)
+        // bcrypt password check
+        const isMatch = await bcrypt.compare(password, patient.password);
+        if (!isMatch) {
           return res
             .status(400)
             .json({ message: "Invalid username or password" });
+        }
 
         const token = jwt.sign(
-          { id: patient.id, role: "patient", username: patient.name },
+          { id: patient.id, role: "patient", username: patient.epfNo },
           JWT_SECRET,
-          { expiresIn: "1d" }
+          { expiresIn: "1d" },
         );
 
         return res.json({
@@ -51,21 +51,30 @@ module.exports = {
         });
       }
 
-      // Check if username exists in staff table
-      staffModel.findByNameAndEpf(username, password, (err, staff) => {
-        if (err)
-          return res
-            .status(500)
-            .json({ message: "Server error", error: err.message });
-        if (!staff)
+      // Check STAFF (password NOT sent to model)
+      staffModel.findByUsername(username, async (err, staff) => {
+        if (err) {
+          return res.status(500).json({ message: "Server error" });
+        }
+
+        if (!staff) {
           return res
             .status(400)
             .json({ message: "Invalid username or password" });
+        }
+
+        // bcrypt password check
+        const isMatch = await bcrypt.compare(password, staff.password);
+        if (!isMatch) {
+          return res
+            .status(400)
+            .json({ message: "Invalid username or password" });
+        }
 
         const token = jwt.sign(
           { id: staff.id, role: "staff", username: staff.name },
           JWT_SECRET,
-          { expiresIn: "1d" }
+          { expiresIn: "1d" },
         );
 
         return res.json({

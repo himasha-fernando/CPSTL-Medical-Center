@@ -56,6 +56,7 @@ const Staff = {
     status = ?
     WHERE id = ?`;
 
+    // Prepare the parameters
     const params = [
       staffData.epfNumber,
       staffData.name,

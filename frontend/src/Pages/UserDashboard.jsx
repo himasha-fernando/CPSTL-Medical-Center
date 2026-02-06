@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../utils/api";
 import {
   ChartBarIcon,
   HeartIcon,
@@ -250,8 +250,7 @@ function UserDashboard() {
       setError(null);
       try {
         // Attempt route that exists in your backend
-        const url = `http://localhost:5000/patientmedicalrecords/${userId}/latest`;
-        const res = await axios.get(url);
+        const res = await api.get(`/patientmedicalrecords/${userId}/latest`);
         // backend might return an array directly or { data: [...] } etc
         let rec =
           res.data?.latestRecord ??
@@ -278,8 +277,7 @@ function UserDashboard() {
     const fetchRecords = async () => {
       setLoadingRecords(true);
       try {
-        const url = `http://localhost:5000/patientmedicalrecords/${userId}/records`;
-        const res = await axios.get(url);
+        const res = await api.get(`/patientmedicalrecords/${userId}/records`);
 
         let list =
           res.data?.records ??
@@ -329,8 +327,7 @@ function UserDashboard() {
     if (!userId) return;
     const fetchCount = async () => {
       try {
-        const url = `http://localhost:5000/patientmedicalrecords/count/${userId}`;
-        const res = await axios.get(url);
+        const res = await api.get(`/patientmedicalrecords/count/${userId}`);
         // backend route returns
         const count =
           res.data?.count ??
@@ -344,6 +341,23 @@ function UserDashboard() {
     };
     fetchCount();
   }, [userId]);
+
+  /* NEW */
+useEffect (() =>{
+  if (!userId) return;
+  const fetchCount = async () => {
+    try {
+      const res= await api.get('/patientmedicalrecords/records/today/count');
+      setTpdayCount(res.data.count);
+    
+    }catch (err) {
+      console.error()
+    }
+
+
+  }
+})
+  /* NEW */
 
   const handleRecordOpen = (record) => {
     setSelectedRecord(record); // open modal with this record
@@ -748,6 +762,7 @@ function UserDashboard() {
                                       "No details."
                                 }
                                 colorClass="text-orange-600"
+
                               />
                               <NotesCard
                                 icon={FireIcon}

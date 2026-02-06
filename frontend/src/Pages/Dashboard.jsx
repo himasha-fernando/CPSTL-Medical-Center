@@ -1,7 +1,6 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
-
-import axios from "axios";
+import api from "../utils/api";
 
 import {
   BuildingOffice2Icon,
@@ -12,6 +11,9 @@ import {
   ArrowUpRightIcon,
   ChevronRightIcon,
   UserPlusIcon,
+  FireIcon,
+  HeartIcon,
+  ArrowTrendingUpIcon,
 } from "@heroicons/react/24/outline";
 
 import AppSidebar from "../Components/AppSidebar";
@@ -19,12 +21,19 @@ import AppHeader from "../Components/AppHeader";
 import AppFooter from "../Components/AppFooter";
 import RegisterPatient from "./RegisterPatient";
 import EditPatientModal from "../Components/EditPatientModal";
+import SlidingStatCards from "../Components/SlidingStatCards";
 
-// Small stat card
-const StatCard = ({ icon, title, value, sub }) => {
+// Small stat cards
+const StatCard = ({ icon, title, value, sub, onClick }) => {
   const IconComponent = icon;
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
+    <div
+      onClick={onClick}
+      className={`bg-white rounded-xl shadow-sm border border-gray-200 p-4
+  h-full flex flex-col justify-between
+  hover:shadow-md transition-shadow
+  ${onClick ? "cursor-pointer hover:bg-gray-50" : ""}`}
+    >
       <div className="flex items-center">
         <div className="rounded-lg bg-red-50 text-red-600 p-2 mr-3">
           <IconComponent className="w-6 h-6" />
@@ -38,7 +47,6 @@ const StatCard = ({ icon, title, value, sub }) => {
     </div>
   );
 };
-
 // Red promo banner
 const PromoBanner = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -64,18 +72,24 @@ const PromoBanner = () => {
     <div className="w-full flex justify-between items-start mb-6">
       {/* Promo Banner */}
       <div className="flex-1">
-        <div className="relative overflow-hidden rounded-xl p-6 md:p-7 lg:p-8 bg-gradient-to-r from-red-500 to-red-600 text-white shadow-sm">
+        <div className="relative overflow-hidden rounded-xl p-6 md:p-7 lg:p-8 bg-gradient-to-r from-red-600 to-red-600 text-white shadow-sm">
           <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white/10 blur-2xl" />
           <div className="absolute -bottom-12 -left-12 w-48 h-48 rounded-full bg-white/10 blur-3xl" />
           <div className="relative z-10 flex items-center">
             <div className="flex-1">
-              <div className="text-2xl md:text-3xl font-bold leading-tight">
-                Welcome back!
+            <div
+                className="text-3xl md:text-4xl font-bold leading-tight"
+                style={{ fontFamily: "'Playfair Display', serif" }}
+              >
+                CPSTL Medical Center
               </div>
-              <div className="mt-2 text-sm text-white/90">
-                We hope you have a great day. The latest data is here for you.
+              
+              <div className="mt-2 text-xl text-white/90"
+              style={{ fontFamily: "'Playfair Display', serif" }}>
+                We hope you have a productive and pleasant day ahead. All the latest updates and essential data are available here to support your daily tasks and decision-making.
               </div>
-              <div className="mt-2 flex items-center text-sm text-red-50">
+              <div className="mt-2 flex items-center text-sm text-red-50"
+              style={{ fontFamily: "'Playfair Display', serif" }}>
                 <CalendarDaysIcon className="w-4 h-4 mr-1 opacity-90" />
                 {formattedDate} · {formattedTime}
               </div>
@@ -98,20 +112,45 @@ const PromoBanner = () => {
 
 // Simple responsive SVG line chart
 const LineChartCard = () => {
-  const [selectedView, setSelectedView] = useState("monthly");
+  const [selectedView, setSelectedView] = useState("daily");
   const [chartData, setChartData] = useState({ labels: [], counts: [] });
 
   // Fetch stats
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const url =
-          selectedView === "monthly"
-            ? "http://localhost:5000/patientmedicalrecords/stats/monthly"
-            : "http://localhost:5000/patientmedicalrecords/stats/yearly";
+        const endpoint =
+          selectedView === "daily"
+            ? "/patientmedicalrecords/stats/daily"
+            : selectedView === "monthly"
+              ? "/patientmedicalrecords/stats/monthly"
+              : "/patientmedicalrecords/stats/yearly";
 
-        const res = await axios.get(url);
+        const res = await api.get(endpoint);
         let data = res.data.data || [];
+
+        //fill missing last 7 days
+        if (selectedView === "daily") {
+          const days = [];
+          const map = {};
+
+          data.forEach((d) => {
+            map[d.day] = d.count;
+          });
+
+          for (let i = 6; i >= 0; i--) {
+            const date = new Date();
+            date.setDate(date.getDate() - i);
+
+            const key = date.toISOString().slice(0, 10); // yyyy-mm-dd
+            days.push({
+              day: key,
+              count: map[key] ?? 0,
+            });
+          }
+
+          data = days;
+        }
 
         // Show only last month + current month when view = monthly
         if (selectedView === "monthly" && data.length > 0) {
@@ -154,8 +193,16 @@ const LineChartCard = () => {
         // Update chart data
         setChartData({
           labels: data.map((d) =>
-            selectedView === "monthly" ? d.month : d.year
+            selectedView === "daily"
+              ? new Date(d.day).toLocaleDateString("en-GB", {
+                  day: "numeric",
+                  month: "short",
+                })
+              : selectedView === "monthly"
+                ? d.month
+                : d.year,
           ),
+
           counts: data.map((d) => d.count),
         });
       } catch (err) {
@@ -206,13 +253,25 @@ const LineChartCard = () => {
             Medical center Visits Statistics
           </div>
           <div className="text-xs text-gray-500">
-            {selectedView === "monthly"
-              ? "Visits over the last 12 months"
-              : "Visits over the last 5 years"}
+            {selectedView === "daily"
+              ? "Visits over the last 7 days"
+              : selectedView === "monthly"
+                ? "Visits over the last 12 months"
+                : "Visits over the last 5 years"}
           </div>
         </div>
 
         <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setSelectedView("daily")}
+            className={`px-3 py-1 rounded-full text-xs font-medium transition ${
+              selectedView === "daily"
+                ? "bg-red-500 text-white"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            Daily
+          </button>
           <button
             onClick={() => setSelectedView("monthly")}
             className={`px-3 py-1 rounded-full text-xs font-medium transition ${
@@ -269,15 +328,24 @@ const LineChartCard = () => {
         </svg>
 
         {/* X labels */}
-        <div
-          className={`px-4 grid grid-cols-${chartData.labels.length} text-[10px] text-gray-500 -mt-2`}
-        >
-          {chartData.labels.map((m, i) => (
-            <div className="text-center" key={m + i}>
-              {m}
-            </div>
-          ))}
-        </div>
+<div className="flex justify-center -mt-2">
+  <div
+    className="grid text-[10px] text-gray-500"
+    style={{
+      width: 680, 
+      gridTemplateColumns: `repeat(${chartData.labels.length}, 1fr)`,
+      paddingLeft: 24,
+      paddingRight: 24,
+    }}
+  >
+    {chartData.labels.map((label, i) => (
+      <div key={i} className="text-center">
+        {label}
+      </div>
+    ))}
+  </div>
+</div>
+
       </div>
     </div>
   );
@@ -295,8 +363,8 @@ const DoctorsListCard = () => {
     const fetchPatientsAndStaff = async () => {
       try {
         const [patientsRes, staffRes] = await Promise.all([
-          axios.get("http://localhost:5000/patients"),
-          axios.get("http://localhost:5000/staff"),
+          api.get("/patients"),
+          api.get("/staff"),
         ]);
         setPatients(patientsRes.data || []);
         setStaff(staffRes.data || []);
@@ -321,10 +389,10 @@ const DoctorsListCard = () => {
   ];
 
   const filteredList = combinedList.filter((item) =>
-    item.epf?.toLowerCase().includes(searchEPF.toLowerCase())
+    item.epf?.toLowerCase().includes(searchEPF.toLowerCase()),
   );
 
-  //Calculate age from DOB
+  //Calculate age from DOB 
   const calculateAge = (dob) => {
     if (!dob) return null;
     const birthDate = new Date(dob);
@@ -416,7 +484,7 @@ const DoctorsListCard = () => {
 
       // Alcohol
       const alcoholMapped = mapAlcoholSummaryToForm(
-        currentProblems.Alcohol || currentProblems.alcohol || ""
+        currentProblems.Alcohol || currentProblems.alcohol || "",
       );
       obj.consumeAlcohol = alcoholMapped.consumeAlcohol;
       obj.alcoholSummary = alcoholMapped.alcoholComments;
@@ -448,7 +516,6 @@ const DoctorsListCard = () => {
           case "blood pressure":
             obj.bpCategory = val;
             break;
-
           case "smoking":
             obj.smokingSummary = val;
             obj.smokingHabits = mapSmokingSummaryToHabit(val);
@@ -476,14 +543,12 @@ const DoctorsListCard = () => {
     try {
       const patientId = patient._id || patient.id;
 
-      const res = await axios.get(
-        `http://localhost:5000/patientmedicalrecords/${patientId}/latest`
-      );
+      const res = await api.get(`/patientmedicalrecords/${patientId}/latest`);
 
       let latestRecord = res.data?.latestRecord || {};
 
       const parsed = parseCurrentProblems(
-        latestRecord.currentProblems || latestRecord.currentProblemsString
+        latestRecord.currentProblems || latestRecord.currentProblemsString,
       );
 
       latestRecord = { ...latestRecord, ...parsed };
@@ -593,7 +658,102 @@ function Dashboard() {
   const [staffCount, setStaffCount] = useState(0);
   const [todayCount, setTodayCount] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [highRiskStats, setHighRiskStats] = useState([]);
+  const [highRiskCountStats, setHighRiskCountStats] = useState([]);
+
   const navigate = useNavigate();
+
+  //sliding stat card
+  const slidingStats = [
+    {
+      icon: BuildingOffice2Icon,
+      title: "Total Patients",
+      value: totalPatients,
+      sub: "Overall registered",
+    },
+    {
+      icon: UserGroupIcon,
+      title: "Today Checkouts",
+      value: todayCount,
+      sub: "Updated today",
+    },
+    {
+      icon: UserGroupIcon,
+      title: "Staff Members",
+      value: staffCount,
+      sub: "Medical Center",
+    },
+  ];
+
+  useEffect(() => {
+    const fetchHighRisk = async () => {
+      try {
+        const res = await api.get("/patientmedicalrecords/dashboard/high-risk");
+
+        const formatted = res.data.data.map((item) => ({
+          icon:
+            item.type === "BMI"
+              ? ArrowTrendingUpIcon
+              : item.type === "SUGAR"
+                ? FireIcon
+                : HeartIcon,
+          title:
+            item.type === "BMI"
+              ? "Highest BMI"
+              : item.type === "SUGAR"
+                ? "Highest Blood Sugar"
+                : "Highest Blood Pressure",
+          value: item.value,
+          sub: `${item.name} • ${item.epfNo} • ${item.department}`,
+        }));
+
+        setHighRiskStats(formatted);
+      } catch (err) {
+        console.error("High risk fetch error:", err);
+      }
+    };
+
+    fetchHighRisk();
+  }, []);
+
+  useEffect(() => {
+    const fetchHighRiskCounts = async () => {
+      try {
+        const res = await api.get(
+          "/patientmedicalrecords/dashboard/high-risk-counts",
+        );
+
+        const data = res.data.data;
+
+        const formatted = [
+          {
+            icon: ArrowTrendingUpIcon,
+            title: "High BMI Patients",
+            value: data.BMI,
+            sub: "All departments",
+          },
+          {
+            icon: HeartIcon,
+            title: "High BP Patients",
+            value: data.BP,
+            sub: "All departments",
+          },
+          {
+            icon: FireIcon,
+            title: "High Blood Sugar Patients",
+            value: data.SUGAR,
+            sub: "All departments",
+          },
+        ];
+
+        setHighRiskCountStats(formatted);
+      } catch (err) {
+        console.error("High risk count fetch error:", err);
+      }
+    };
+
+    fetchHighRiskCounts();
+  }, []);
 
   useEffect(() => {
     const role = JSON.parse(localStorage.getItem("userData"))?.role;
@@ -605,7 +765,7 @@ function Dashboard() {
   useEffect(() => {
     const fetchCount = async () => {
       try {
-        const res = await axios.get("http://localhost:5000/patients/count");
+        const res = await api.get("/patients/count");
         setTotalPatients(res.data.count ?? 0);
       } catch (err) {
         console.error("Error fetching patient count:", err.response || err);
@@ -621,7 +781,7 @@ function Dashboard() {
   useEffect(() => {
     const fetchStaffCount = async () => {
       try {
-        const res = await axios.get("http://localhost:5000/staff/count");
+        const res = await api.get("/staff/count");
         setStaffCount(res.data.count);
       } catch (error) {
         console.error("Error fetching staff count:", error);
@@ -633,9 +793,7 @@ function Dashboard() {
 
   const fetchTodayPatientCount = async () => {
     try {
-      const res = await axios.get(
-        "http://localhost:5000/patientmedicalrecords/records/today/count"
-      );
+      const res = await api.get("/patientmedicalrecords/records/today/count");
       setTodayCount(res.data.count);
     } catch (err) {
       console.error("Error fetching today's patient count:", err);
@@ -668,25 +826,56 @@ function Dashboard() {
               <PromoBanner />
 
               {/* Small Stats Cards below Promo Banner */}
-              <div className="mt-4 grid grid-cols-3 gap-4">
-                <StatCard
-                  icon={BuildingOffice2Icon}
-                  value={loading ? "..." : totalPatients}
-                  title="Total Patients"
-                  sub={error ? "Error loading" : "Updated today"}
-                />
-                <StatCard
-                  icon={UserGroupIcon}
-                  value={todayCount}
-                  title="New Patients"
-                  sub="Today checkouts"
-                />
-                <StatCard
-                  icon={UserGroupIcon}
-                  value={staffCount}
-                  title="Staff"
-                  sub="All units"
-                />
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-12 gap-4 auto-rows-fr">
+                
+                {/* Total Patients */}
+                <div className="md:col-span-3">
+                  <StatCard
+                    icon={BuildingOffice2Icon}
+                    value={loading ? "..." : totalPatients}
+                    title="Total Patients"
+                    sub={error ? "Error loading" : "Updated today"}
+                  />
+                </div>
+
+                {/* Today Checkouts */}
+                <div className="md:col-span-3">
+
+                  <StatCard
+                    icon={UserGroupIcon}
+                    value={todayCount}
+                    title="Today Checkouts"
+                    sub="Updated today"
+                    onClick={() =>
+                      navigate("/ManagePatients", {
+                        state: { filter: "todayCheckouts" },
+                      })
+                    }
+                  />
+                </div>
+
+                {/* Staff */}
+                {/* <div className="md:col-span-3">
+  <StatCard
+    icon={UserGroupIcon}
+    value={staffCount}
+    title="Staff Members"
+    sub="Medical Center"
+  /> get todays counts with allpatients and getting with all powerd
+</div> */}
+
+                {/* Highest individual risk */}
+                <div className="md:col-span-3 h-full">
+                  <SlidingStatCards stats={highRiskStats} interval={4000} />
+                </div>
+
+                {/* High-risk counts */}
+                <div className="md:col-span-3 h-full">
+                  <SlidingStatCards
+                    stats={highRiskCountStats}
+                    interval={4000}
+                  />
+                </div>
               </div>
               {/* Middle Row: Chart */}
               <div className="mt-1 grid grid-cols-1 lg:grid-cols-3 gap-4">

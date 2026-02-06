@@ -1,19 +1,17 @@
-// backend/routes/staffRoutes.js
 const express = require("express");
 const router = express.Router();
 const {
-    addStaff,
-    getAllStaff,
-    getStaffById,
-    deleteStaffById,
-    updateStaffById,
-    getStaffCount,
-    getAllUsers
-  } = require("../Controllers/staffController");
-
+  addStaff,
+  getAllStaff,
+  getStaffById,
+  deleteStaffById,
+  updateStaffById,
+  getStaffCount,
+  getAllUsers,
+} = require("../Controllers/staffController");
 
 // Add new staff
-router.post("/add",addStaff);
+router.post("/add", addStaff);
 
 // Get all staff
 router.get("/", getAllStaff);

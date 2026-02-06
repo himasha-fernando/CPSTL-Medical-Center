@@ -1,4 +1,3 @@
-// src/Pages/ManageStaff.jsx
 import React, { useEffect, useState } from "react";
 import {
   UserCircleIcon,
@@ -13,7 +12,7 @@ import {
   BriefcaseIcon,
 } from "@heroicons/react/24/outline";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../utils/api";
 import AppSidebar from "../Components/AppSidebar";
 import AppHeader from "../Components/AppHeader";
 import AppFooter from "../Components/AppFooter";
@@ -95,7 +94,7 @@ function ManageStaff() {
   useEffect(() => {
     const fetchStaff = async () => {
       try {
-        const response = await axios.get("http://localhost:5000/staff");
+        const response = await api.get("/staff");
         const staffData = response.data.map((member) => ({
           ...member,
           status: member.status || "Active",
@@ -167,8 +166,8 @@ function ManageStaff() {
   const handleSaveEdit = async (editedStaff) => {
     try {
       // Send updated staff to backend
-      await axios.put(
-        `http://localhost:5000/staff/update/${editedStaff.id}`,
+      await api.put(
+        `/staff/update/${editedStaff.id}`,
         editedStaff
       );
 
@@ -192,7 +191,7 @@ function ManageStaff() {
 
     try {
       // Call backend API to delete staff
-      await axios.delete(`http://localhost:5000/staff/${staffId}`);
+      await api.delete(`/staff/${staffId}`);
 
       // Update local state after successful deletion
       const updatedStaff = staff.filter((s) => s.id !== staffId);

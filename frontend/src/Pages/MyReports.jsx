@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../utils/api";
 import {
   ChartBarIcon,
   HeartIcon,
@@ -102,8 +102,8 @@ const MyReports = () => {
     const fetchRecords = async () => {
       setLoading(true);
       try {
-        const res = await axios.get(
-          `http://localhost:5000/patientmedicalrecords/${userId}/records`
+        const res = await api.get(
+          `/patientmedicalrecords/${userId}/records`
         );
         const allRecords = res.data?.records ?? res.data ?? [];
         allRecords.sort(

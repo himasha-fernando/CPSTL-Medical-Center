@@ -1,14 +1,28 @@
 const patientModel = require("../Models/patientModel");
+const bcrypt = require("bcrypt");
+const ExcelJS = require("exceljs");
 
 // Create new patient
-const createPatient = (req, res) => {
-  patientModel.addPatient(req.body, (err, result) => {
-    if (err) return res.status(500).json({ error: err });
-    res.json({
-      message: "Patient added successfully",
-      patientId: result.insertId,
+const createPatient = async (req, res) => {
+  try {
+    const patientData = { ...req.body };
+
+    if (patientData.password) {
+      patientData.password = await bcrypt.hash(patientData.password, 10);
+    }
+
+    patientModel.addPatient(patientData, (err, result) => {
+      if (err) return res.status(500).json({ error: err });
+
+      res.json({
+        message: "Patient added successfully",
+        patientId: result.insertId,
+      });
     });
-  });
+  } catch (err) {
+    console.error("Create patient error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
 };
 
 // Get all patients
@@ -135,6 +149,89 @@ const checkEPF = (req, res) => {
     }
   });
 };
+// Get next registration number
+const getNextRegistrationNo = (req, res) => {
+  patientModel.getLastRegistrationNo((err, lastRegNo) => {
+    if (err) {
+      console.error("Error fetching last registrationNo:", err);
+      return res.status(500).json({ error: "Server error" });
+    }
+
+    let nextRegNo = "REG001"; // default if no patients
+    if (lastRegNo) {
+      const lastNo = parseInt(lastRegNo.replace(/\D/g, "")); // extract number
+      const nextNo = lastNo + 1;
+      nextRegNo = "REG" + String(nextNo).padStart(3, "0");
+    }
+
+    res.json({ registrationNo: nextRegNo });
+  });
+};
+
+// Download absent patients
+const downloadAbsentPatientsExcel = async (req, res) => {
+  const { department } = req.params;
+
+  patientModel.getAbsentPatientsByDepartment(department, async (err, rows) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ message: "DB error" });
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Absent Patients");
+
+    sheet.columns = [
+      { header: "Registration No", key: "registrationNo", width: 18 },
+      { header: "Name", key: "name", width: 25 },
+      { header: "EPF No", key: "epfNo", width: 15 },
+      { header: "Department", key: "department", width: 25 },
+      { header: "Contact No", key: "contactNo", width: 15 },
+      { header: "Gender", key: "gender", width: 10 },
+      { header: "Date of Birth", key: "dateOfBirth", width: 15 },
+    ];
+
+    rows.forEach((r) => sheet.addRow(r));
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=Absent_${department}.xlsx`,
+    );
+
+    await workbook.xlsx.write(res);
+    res.end();
+  });
+};
+
+// Get absent patients by department
+const getAbsentPatientsByDepartmentJSON = (req, res) => {
+  const department = decodeURIComponent(req.params.department).trim();
+
+  patientModel.getAbsentPatientsByDepartment(department, (err, results) => {
+    if (err) {
+      console.error("Error fetching absent patients:", err);
+      return res.status(500).json({ message: "Server error" });
+    }
+
+    return res.json(results);
+  });
+};
+
+// Department wise patient count
+const getPatientCountDepartmentWise = (req, res) => {
+  patientModel.getPatientCountByDepartment((err, results) => {
+    if (err) {
+      console.error("Error fetching department patient counts:", err);
+      return res.status(500).json({ success: false, error: "Database error" });
+    }
+
+    res.json({ success: true, data: results });
+  });
+};
 
 module.exports = {
   createPatient,
@@ -146,4 +243,8 @@ module.exports = {
   getAbsentPatientCountByDepartment,
   searchPatient,
   checkEPF,
+  getNextRegistrationNo,
+  downloadAbsentPatientsExcel,
+  getAbsentPatientsByDepartmentJSON,
+  getPatientCountDepartmentWise,
 };

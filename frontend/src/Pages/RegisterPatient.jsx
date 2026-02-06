@@ -1,11 +1,12 @@
-import React, { useState } from "react";
-import axios from "axios";
+import React, { useState,useEffect } from "react";
+import api from "../utils/api";
 import {
   ExclamationCircleIcon,
   UserCircleIcon,
+  EyeIcon, EyeSlashIcon,
 } from "@heroicons/react/24/outline";
 
-function RegisterPatient({ onClose }) {
+function RegisterPatient({ onClose,isOpen }) {
   const [formData, setFormData] = useState({
     registrationNo: "",
     name: "",
@@ -14,16 +15,54 @@ function RegisterPatient({ onClose }) {
     contactNo: "",
     gender: "",
     dateOfBirth: "",
+    password: "",
   });
 
   const [errors, setErrors] = useState({});
   const [message, setMessage] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
     if (errors[name]) setErrors({ ...errors, [name]: "" });
+    if (name === "epfNo") {
+    checkEpfNo(value); 
+  }
   };
+
+  // Password validation helper
+const validatePassword = (password) => {
+  const hasLetters = /[a-zA-Z]/.test(password);
+  const numberCount = (password.match(/\d/g) || []).length;
+
+  if (!hasLetters || numberCount < 2) {
+    return "Password must contain letters and at least 2 numbers";
+  }
+
+  return "";
+};
+
+ useEffect(() => {
+    if (!isOpen) return; 
+
+    const fetchNextRegNo = async () => {
+      try {
+        const res = await api.get(
+          "/patients/next-registration"
+        );
+        setFormData(prev => ({ ...prev, registrationNo: res.data.registrationNo }));
+      } catch (err) {
+        console.error("Failed to fetch next registration number", err);
+      }
+    };
+    fetchNextRegNo();
+  }, [isOpen]);
+
+
+
+
 
   const validate = () => {
     const newErrors = {};
@@ -34,8 +73,15 @@ function RegisterPatient({ onClose }) {
     if (!formData.department) newErrors.department = "Department is required";
     if (!formData.contactNo) newErrors.contactNo = "Contact No. is required";
     if (!formData.gender) newErrors.gender = "Gender is required";
-    if (!formData.dateOfBirth)
-      newErrors.dateOfBirth = "Date of Birth is required";
+    if (!formData.dateOfBirth) newErrors.dateOfBirth = "Date of Birth is required";
+    if (!formData.password) {
+    newErrors.password = "Password is required";
+  } else {
+    const passwordError = validatePassword(formData.password);
+    if (passwordError) {
+      newErrors.password = passwordError;
+    }
+  }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -45,7 +91,7 @@ function RegisterPatient({ onClose }) {
     if (!validate()) return;
 
     try {
-      await axios.post("http://localhost:5000/patients/add", formData);
+      await api.post("/patients/add", formData);
       setMessage("Patient registered successfully!");
       setFormData({
         registrationNo: "",
@@ -55,6 +101,7 @@ function RegisterPatient({ onClose }) {
         contactNo: "",
         gender: "",
         dateOfBirth: "",
+        password: "",
       });
       setTimeout(() => {
         setMessage("");
@@ -65,6 +112,24 @@ function RegisterPatient({ onClose }) {
       console.error(error);
     }
   };
+  
+
+  // Check if EPF No already exists
+const checkEpfNo = async (epfNo) => {
+  if (!epfNo) return; // Skip if empty
+
+  try {
+    const res = await api.get(`/patients/check-epf/${epfNo}`);
+    if (res.data.exists) {
+      setErrors((prev) => ({ ...prev, epfNo: "EPF No already exists" }));
+    } else {
+      setErrors((prev) => ({ ...prev, epfNo: "" }));
+    }
+  } catch (err) {
+    console.error("Error checking EPF:", err);
+  }
+};
+
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-[9999]">
@@ -92,7 +157,7 @@ function RegisterPatient({ onClose }) {
               type="text"
               name="registrationNo"
               value={formData.registrationNo}
-              onChange={handleChange}
+              readOnly
               className={`mt-1 block w-full p-2 border rounded-md ${
                 errors.registrationNo
                   ? "border-red-500 bg-red-50"
@@ -310,6 +375,55 @@ function RegisterPatient({ onClose }) {
               </p>
             )}
           </div>
+
+          {/* Password */}
+<div>
+  <label className="block text-sm font-medium text-gray-700">
+    Password <span className="text-red-500">*</span>
+  </label>
+
+  <div className="relative mt-1">
+    <input
+      type={showPassword ? "text" : "password"}
+      name="password"
+      value={formData.password}
+      onChange={handleChange}
+      className={`block w-full p-2 pr-10 border rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none ${
+        errors.password
+          ? "border-red-500 bg-red-50"
+          : "border-gray-300"
+      }`}
+    />
+
+    {/* Show / Hide icon */}
+    <button
+      type="button"
+      onClick={() => setShowPassword(!showPassword)}
+      className="absolute inset-y-0 right-2 flex items-center text-gray-500 hover:text-gray-700"
+    >
+      {showPassword ? (
+        <EyeSlashIcon className="w-5 h-5" />
+      ) : (
+        <EyeIcon className="w-5 h-5" />
+      )}
+    </button>
+  </div>
+
+  {/* Helper text */}
+  <p className="text-xs text-gray-500 mt-1">
+    Password must contain letters and at least <b>2 numbers</b>.
+  </p>
+
+  {/* Error message */}
+  {errors.password && (
+    <p className="text-xs text-red-500 mt-1 flex items-center">
+      <ExclamationCircleIcon className="w-4 h-4 mr-1" />
+      {errors.password}
+    </p>
+  )}
+</div>
+
+
 
           <button
             type="submit"

@@ -1,8 +1,9 @@
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const db = require("../db");
-const JWT_SECRET = "SECRETKEY123";
+const JWT_SECRET = process.env.JWT_SECRET;
 
+// Admin login
 module.exports = {
   adminLogin: (req, res) => {
     const { username, password } = req.body;
@@ -43,12 +44,9 @@ module.exports = {
             .status(400)
             .json({ message: "Invalid username or password" });
 
-        const token = jwt.sign(
-          { id: admin.id, role: "admin", username: admin.username },
-          JWT_SECRET,
-          { expiresIn: "1d" }
-        );
-
+        const token = jwt.sign({ id: admin.id, role: "admin" }, JWT_SECRET, {
+          expiresIn: "1d",
+        });
         res.json({
           message: "Login successful",
           role: "admin",
@@ -64,6 +62,7 @@ module.exports = {
     });
   },
 
+  // Get admin by ID
   getAdminById: (req, res) => {
     const id = req.params.id;
     const sql = "SELECT * FROM users WHERE id = ?";

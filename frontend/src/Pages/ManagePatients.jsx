@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../utils/api";
 import {
   UserCircleIcon,
   MagnifyingGlassIcon,
@@ -13,6 +13,7 @@ import {
   ChevronRightIcon,
   ChartBarIcon,
   CalendarDaysIcon,
+  KeyIcon,
 } from "@heroicons/react/24/outline";
 
 import AppSidebar from "../Components/AppSidebar";
@@ -60,10 +61,13 @@ function ManagePatients() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [searchDate, setSearchDate] = useState("");
   const patientsPerPage = 10;
   const location = useLocation();
   const [popup, setPopup] = useState(null);
   const navigate = useNavigate();
+  const isAdmin = localStorage.getItem("role") === "admin";
+ 
 
   useEffect(() => {
     if (location.state?.message) {
@@ -88,24 +92,47 @@ function ManagePatients() {
   };
 
   // Load patients from localStorage
-  useEffect(() => {
-    const fetchPatients = async () => {
-      try {
-        const res = await axios.get("http://localhost:5000/patients");
-        const patientsWithStatus = res.data.map((patient) => {
-          const status =
-            patient.manualStatus || determinePatientStatus(patient);
-          return { ...patient, status };
-        });
-        setPatients(patientsWithStatus);
-        setFilteredPatients(patientsWithStatus);
-      } catch (err) {
-        console.error("Error fetching patients:", err);
-      }
-    };
+useEffect(() => {
+  const fetchPatients = async () => {
+    try {
+      const [patientsRes, recordsRes] = await Promise.all([
+        api.get("/patients"),
+        api.get("/patientmedicalrecords/records/all-dates"),
+      ]);
 
-    fetchPatients();
-  }, []);
+      
+      const visitDateMap = {};
+      recordsRes.data.forEach((r) => {
+        if (!visitDateMap[r.patient_id]) {
+          visitDateMap[r.patient_id] = [];
+        }
+        visitDateMap[r.patient_id].push(r.visitDate);
+      });
+
+      const patientsWithVisits = patientsRes.data.map((p) => ({
+        ...p,
+        status: p.manualStatus || determinePatientStatus(p),
+        visitDates: visitDateMap[p.id] || [],
+      }));
+
+      setPatients(patientsWithVisits);
+      setFilteredPatients(patientsWithVisits);
+    } catch (err) {
+      console.error("Error loading patients:", err);
+    }
+  };
+
+  fetchPatients();
+}, []);
+
+
+useEffect(() => {
+  if (location.state?.filter === "todayCheckouts") {
+    const today = new Date().toISOString().split("T")[0];
+    setSearchTerm(today);
+  }
+}, [location.state]);
+
 
   // Calculate age
   const calculateAge = (dob) => {
@@ -125,32 +152,41 @@ function ManagePatients() {
   };
 
   // Search and filter
-  useEffect(() => {
-    let filtered = patients;
+useEffect(() => {
+  let filtered = patients;
+  const term = searchTerm.trim().toLowerCase();
 
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (patient) =>
-          (patient.name || "")
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-          (patient.registrationNo || "")
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-          (patient.epfNo || "")
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-          (patient.contactNo || "").includes(searchTerm)
-      );
-    }
+  // Detect date (YYYY-MM-DD)
+  const isDateSearch = /^\d{4}-\d{2}-\d{2}$/.test(term);
 
-    if (filterStatus !== "all") {
-      filtered = filtered.filter((patient) => patient.status === filterStatus);
-    }
+  filtered = filtered.filter((patient) => {
+    // TEXT MATCH
+    const textMatch =
+      patient.name?.toLowerCase().includes(term) ||
+      patient.registrationNo?.toLowerCase().includes(term) ||
+      patient.epfNo?.toLowerCase().includes(term) ||
+      patient.contactNo?.includes(term);
 
-    setFilteredPatients(filtered);
-    setCurrentPage(1);
-  }, [searchTerm, filterStatus, patients]);
+    // DATE MATCH
+    const dateMatch =
+      isDateSearch &&
+      Array.isArray(patient.visitDates) &&
+      patient.visitDates.includes(term);
+
+    return isDateSearch ? dateMatch : textMatch;
+  });
+
+  // Status filter
+  if (filterStatus !== "all") {
+    filtered = filtered.filter((p) => p.status === filterStatus);
+  }
+
+  setFilteredPatients(filtered);
+  setCurrentPage(1);
+}, [searchTerm, filterStatus, patients]);
+
+
+
 
   // Pagination
   const indexOfLastPatient = currentPage * patientsPerPage;
@@ -169,9 +205,9 @@ function ManagePatients() {
     try {
       // Fetch both patient info and latest medical record in parallel
       const [patientResp, recordResp] = await Promise.allSettled([
-        axios.get(`http://localhost:5000/patients/${patientId}`),
-        axios.get(
-          `http://localhost:5000/patientmedicalrecords/${patientId}/latest`
+        api.get(`/patients/${patientId}`),
+        api.get(
+          `/patientmedicalrecords/${patientId}/latest`
         ),
       ]);
 
@@ -231,8 +267,8 @@ function ManagePatients() {
 
     try {
       // Fetch latest medical record
-      const res = await axios.get(
-        `http://localhost:5000/patientmedicalrecords/${patientId}/latest`
+      const res = await api.get(
+        `/patientmedicalrecords/${patientId}/latest`
       );
 
       let latestRecord = res.data?.latestRecord || null;
@@ -315,13 +351,47 @@ function ManagePatients() {
     }
   };
 
+  const handleChangePassword = async (patient) => {
+  const newPassword = prompt(
+    `Enter new password for ${patient.name} (EPF: ${patient.epfNo})`
+  );
+
+  if (!newPassword) return;
+
+  try {
+    const res = await api.put("/auth/change-password", {
+      userType: "patient",
+      identifier: patient.epfNo,
+      newPassword,
+    });
+
+    setPopup({
+      message: res.data.message || "Password changed successfully",
+      type: "success",
+    });
+
+    setTimeout(() => setPopup(null), 3000);
+  } catch (err) {
+    console.error("Password change failed:", err);
+
+    setPopup({
+      message:
+        err.response?.data?.message ||
+        "Failed to change password",
+      type: "error",
+    });
+
+    setTimeout(() => setPopup(null), 3000);
+  }
+};
+
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this patient?"))
       return;
 
     try {
-      const res = await axios.delete(
-        `http://localhost:5000/patients/delete/${id}`
+      const res = await api.delete(
+        `/patients/delete/${id}`
       );
       console.log(res.data.message);
 
@@ -408,7 +478,7 @@ function ManagePatients() {
           <div className="relative">
             <input
               type="text"
-              placeholder="Search by name, registration no, EPF no, or contact..."
+              placeholder="Search by name, registration no, EPF no, or contact or visit date (YYYY-MM-DD)..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
@@ -438,7 +508,7 @@ function ManagePatients() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Reg. No
+                  EPF No
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Patient Info
@@ -474,7 +544,7 @@ function ManagePatients() {
                     >
                       {/* Registration No */}
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {patient.registrationNo}
+                        {patient.epfNo}
                       </td>
 
                       {/* Patient Info */}
@@ -484,7 +554,7 @@ function ManagePatients() {
                             {patient.name}
                           </div>
                           <div className="text-sm text-gray-500">
-                            EPF: {patient.epfNo}
+                            Reg: {patient.registrationNo}
                           </div>
                         </div>
                       </td>
@@ -545,6 +615,18 @@ function ManagePatients() {
                           >
                             <PencilIcon className="w-5 h-5" />
                           </button>
+
+                          {isAdmin && (
+  <button
+    onClick={() => handleChangePassword(patient)}
+    className="p-1 text-purple-600 hover:bg-purple-100 rounded transition-colors"
+    title="Change Password"
+  >
+    <KeyIcon className="w-5 h-5" />
+  </button>
+)}
+
+
 
                           <button
                             onClick={() => handleDelete(patient.id)}

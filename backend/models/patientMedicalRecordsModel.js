@@ -6,19 +6,6 @@ const toNullable = (value, isNumber = false) => {
   return isNumber ? Number(value) : value;
 };
 
-// Format JS date to MySQL DATETIME
-const formatDateTime = (dateStr) => {
-  if (!dateStr) return null;
-  const dt = new Date(dateStr);
-  const yyyy = dt.getFullYear();
-  const mm = String(dt.getMonth() + 1).padStart(2, "0");
-  const dd = String(dt.getDate()).padStart(2, "0");
-  const hh = String(dt.getHours()).padStart(2, "0");
-  const min = String(dt.getMinutes()).padStart(2, "0");
-  const ss = String(dt.getSeconds()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
-};
-
 // Add medical record
 const addMedicalRecord = (patientId, data, callback) => {
   const sql = `
@@ -54,45 +41,57 @@ const addMedicalRecord = (patientId, data, callback) => {
       familyHistorySiblings,
       otherSiblingsConditions,
       currentProblems
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `;
+   )  VALUES (
+      ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+    )
+`;
 
+  // Convert empty string to NULL
   const values = [
     patientId,
-    data.visitDate
-      ? formatDateTime(data.visitDate)
-      : formatDateTime(new Date()),
-    data.age ?? null,
-    data.height ?? null,
-    data.weight ?? null,
-    data.bmi ?? null,
-    data.waist ?? null,
-    data.rbs ?? null,
-    data.fbs ?? null,
-    data.systolicBP ?? null,
-    data.diastolicBP ?? null,
-    data.visionLeft ?? null,
-    data.visionRight ?? null,
-    data.breastExamination ?? null,
-    data.papSmear ?? null,
-    data.alcoholConsumption ?? null,
-    data.alcoholSummary ?? null,
-    data.smokingHabits ?? null,
-    data.smokingSummary ?? null,
-    data.treatmentPlan ?? null,
-    data.smokingCessationAdvice ?? null,
-    data.alcoholAbuseAdvice ?? null,
+    data.visitDate || new Date(),
+
+    toNullable(data.age, true),
+    toNullable(data.height, true),
+    toNullable(data.weight, true),
+    toNullable(data.bmi, true),
+    toNullable(data.waist, true),
+    toNullable(data.rbs, true),
+    toNullable(data.fbs, true),
+    toNullable(data.systolicBP, true),
+    toNullable(data.diastolicBP, true),
+
+    toNullable(data.visionLeft),
+    toNullable(data.visionRight),
+    toNullable(data.breastExamination),
+    toNullable(data.papSmear),
+
+    toNullable(data.alcoholConsumption),
+    toNullable(data.alcoholSummary),
+    toNullable(data.smokingHabits),
+    toNullable(data.smokingSummary),
+
+    toNullable(data.treatmentPlan),
+    toNullable(data.smokingCessationAdvice),
+    toNullable(data.alcoholAbuseAdvice),
+
     data.patientHistory ? JSON.stringify(data.patientHistory) : null,
-    data.otherPatientConditions ?? null,
+    toNullable(data.otherPatientConditions),
+
     data.familyHistoryFather ? JSON.stringify(data.familyHistoryFather) : null,
-    data.otherFatherConditions ?? null,
+
+    toNullable(data.otherFatherConditions),
+
     data.familyHistoryMother ? JSON.stringify(data.familyHistoryMother) : null,
-    data.otherMotherConditions ?? null,
+
+    toNullable(data.otherMotherConditions),
+
     data.familyHistorySiblings
       ? JSON.stringify(data.familyHistorySiblings)
       : null,
-    data.otherSiblingsConditions ?? null,
-    data.currentProblems ?? null,
+
+    toNullable(data.otherSiblingsConditions),
+    toNullable(data.currentProblems),
   ];
   db.query(sql, values, callback);
 };
@@ -162,6 +161,84 @@ const getYearlyPatientStats = (callback) => {
   db.query(sql, callback);
 };
 
+// Get today's medical records
+const getTodayRecords = (callback) => {
+  const sql = `
+    SELECT *
+    FROM patientmedicalrecords
+    WHERE DATE(visitDate) = CURDATE()
+  `;
+
+  db.query(sql, callback);
+};
+
+// Get latest medical stats
+const getLatestMedicalStats = (callback) => {
+  const sql = `
+    SELECT 
+      p.name,
+      p.epfNo,
+      p.department,
+      m.bmi,
+      m.rbs,
+      m.fbs,
+      m.systolicBP,
+      m.diastolicBP
+    FROM patientmedicalrecords m
+    JOIN patients p ON p.id = m.patient_id
+    WHERE m.id IN (
+      SELECT MAX(id)
+      FROM patientmedicalrecords
+      GROUP BY patient_id
+    )
+  `;
+  db.query(sql, callback);
+};
+
+// Daily patient visit count (last 7 days)
+const getDailyPatientStats = (callback) => {
+  const sql = `
+    SELECT 
+      DATE(visitDate) AS day,
+      COUNT(DISTINCT patient_id) AS count
+    FROM patientmedicalrecords
+    WHERE visitDate >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+    GROUP BY day
+    ORDER BY day ASC
+  `;
+  db.query(sql, callback);
+};
+
+// Count high-risk patients using LATEST medical record only
+const getHighRiskPatientCounts = (callback) => {
+  const sql = `
+    SELECT
+      SUM(CASE WHEN bmi >= 30 THEN 1 ELSE 0 END) AS highBMI,
+      SUM(
+        CASE 
+          WHEN (systolicBP >= 140 OR diastolicBP >= 90) 
+          THEN 1 ELSE 0 
+        END
+      ) AS highBP,
+      SUM(
+        CASE 
+          WHEN (rbs >= 200 OR fbs >= 126) 
+          THEN 1 ELSE 0 
+        END
+      ) AS highSugar
+    FROM patientmedicalrecords pm
+    INNER JOIN (
+      SELECT patient_id, MAX(visitDate) AS latestDate
+      FROM patientmedicalrecords
+      GROUP BY patient_id
+    ) latest
+      ON pm.patient_id = latest.patient_id
+     AND pm.visitDate = latest.latestDate
+  `;
+
+  db.query(sql, callback);
+};
+
 module.exports = {
   addMedicalRecord,
   getMedicalRecords,
@@ -170,4 +247,8 @@ module.exports = {
   getTodayPatientCount,
   getMonthlyPatientStats,
   getYearlyPatientStats,
+  getDailyPatientStats,
+  getTodayRecords,
+  getLatestMedicalStats,
+  getHighRiskPatientCounts,
 };

@@ -1,8 +1,9 @@
 const express = require("express");
 const router = express.Router();
-const {  register } = require("../Controllers/authController");
+const {  register,changePassword } = require("../Controllers/authController");
 const patientAuth = require("../Controllers/patientAuthController");
 const adminAuth = require("../Controllers/adminAuthController");
+const authMiddleware = require("../Middleware/authMiddleware");
 
 // Patient Login
 router.post("/patient/login", patientAuth.patientLogin);
@@ -21,5 +22,9 @@ router.get("/admin/:id", adminAuth.getAdminById);
 
 //user register route
 router.post("/register", register);
+
+//change password
+router.put("/change-password", authMiddleware.protect, changePassword);
+
 
 module.exports = router;

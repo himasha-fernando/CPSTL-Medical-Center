@@ -22,10 +22,11 @@ const formatDateTime = (dateStr) => {
 const addPatient = (patientData, callback) => {
   const sql = `
     INSERT INTO patients 
-    (registrationNo, name, epfNo, department, contactNo, gender, dateOfBirth, status)
-    VALUES (?, ?, ?, ?, ?, ?,?, ?)
+    (registrationNo, name, epfNo, department, contactNo, gender, dateOfBirth,password, status)
+    VALUES (?, ?, ?, ?, ?, ?,?, ?, ? )
   `;
 
+  // Convert empty string to NULL
   const values = [
     toNullable(patientData.registrationNo),
     toNullable(patientData.name),
@@ -34,6 +35,7 @@ const addPatient = (patientData, callback) => {
     toNullable(patientData.contactNo),
     toNullable(patientData.gender),
     toNullable(patientData.dateOfBirth),
+    toNullable(patientData.password),
     toNullable(patientData.status || "active"),
   ];
 
@@ -89,22 +91,26 @@ const checkPatient = (req, res) => {
 // Get absent patient count per department (no visit within 6 months)
 const getAbsentPatientCountByDepartment = (callback) => {
   const sql = `
-    SELECT 
+    SELECT
       p.department,
       COUNT(p.id) AS absentCount
     FROM patients p
-    LEFT JOIN (
-      SELECT 
-        patient_id, 
-        MAX(visitDate) AS lastVisit
-      FROM patientmedicalrecords
-      GROUP BY patient_id
-    ) m ON p.id = m.patient_id
-    WHERE 
-      (m.lastVisit IS NULL OR m.lastVisit < DATE_SUB(CURDATE(), INTERVAL 6 MONTH))
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM (
+          SELECT department, date_1 AS scheduleDate FROM departmentschedules
+          UNION ALL
+          SELECT department, date_2 FROM departmentschedules
+          UNION ALL
+          SELECT department, date_3 FROM departmentschedules
+      ) s
+      JOIN patientmedicalrecords pmr
+        ON pmr.patient_id = p.id
+       AND DATE(pmr.visitDate) = s.scheduleDate
+      WHERE s.department = p.department
+    )
     GROUP BY p.department
   `;
-
   db.query(sql, callback);
 };
 
@@ -123,11 +129,11 @@ const findPatientByField = (field, value, callback) => {
   //remove extra spaces
   const trimmedValue = value.trim();
   const sql = `SELECT * FROM patients WHERE TRIM(${field}) = ? LIMIT 1`;
-  console.log("SQL Query:", sql, "Value:", trimmedValue);
 
   db.query(sql, [trimmedValue], callback);
 };
 
+// Find patient by name
 const findByName = (name, callback) => {
   const sql = "SELECT * FROM patients WHERE name = ? LIMIT 1";
   db.query(sql, [name], (err, results) => {
@@ -136,9 +142,74 @@ const findByName = (name, callback) => {
   });
 };
 
+// Check if EPF exists
 const checkEPFExists = (epfNo, callback) => {
   const sql = "SELECT id FROM patients WHERE epfNo = ?";
   db.query(sql, [epfNo], callback);
+};
+
+// Find patient by EPF
+const findByEpfNo = (epfNo, callback) => {
+  const sql = "SELECT * FROM patients WHERE epfNo = ? LIMIT 1";
+  db.query(sql, [epfNo.trim()], (err, results) => {
+    if (err) return callback(err);
+    callback(null, results[0]);
+  });
+};
+
+// Get last registration number
+const getLastRegistrationNo = (callback) => {
+  const sql = "SELECT registrationNo FROM patients ORDER BY id DESC LIMIT 1";
+  db.query(sql, [], (err, results) => {
+    if (err) return callback(err);
+    callback(null, results[0] ? results[0].registrationNo : null);
+  });
+};
+
+// Get absent patients by department in excel
+const getAbsentPatientsByDepartment = (department, callback) => {
+  const sql = `
+    SELECT 
+      p.registrationNo,
+      p.name,
+      p.epfNo,
+      p.department,
+      p.contactNo,
+      p.gender,
+      p.dateOfBirth
+    FROM patients p
+    WHERE p.department = ?
+    AND NOT EXISTS (
+      SELECT 1
+      FROM (
+          SELECT department, date_1 AS scheduleDate FROM departmentschedules
+          UNION ALL
+          SELECT department, date_2 FROM departmentschedules
+          UNION ALL
+          SELECT department, date_3 FROM departmentschedules
+      ) s
+      JOIN patientmedicalrecords pmr
+        ON pmr.patient_id = p.id
+       AND DATE(pmr.visitDate) = s.scheduleDate
+      WHERE s.department = p.department
+    )
+  `;
+  db.query(sql, [department], callback);
+};
+
+// Get patient count per department
+const getPatientCountByDepartment = (callback) => {
+  const sql = `
+    SELECT department, COUNT(*) AS patientCount
+    FROM patients
+    GROUP BY department
+    ORDER BY patientCount DESC
+  `;
+
+  db.query(sql, (err, results) => {
+    if (err) return callback(err);
+    callback(null, results);
+  });
 };
 
 module.exports = {
@@ -153,4 +224,8 @@ module.exports = {
   findPatientByField,
   findByName,
   checkEPFExists,
+  findByEpfNo,
+  getLastRegistrationNo,
+  getAbsentPatientsByDepartment,
+  getPatientCountByDepartment,
 };

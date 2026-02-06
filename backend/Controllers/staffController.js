@@ -5,7 +5,7 @@ const addStaff = (req, res) => {
   try {
     const staffData = req.body;
 
-    // Defensive check in case req.body is empty or undefined
+    // Validate request body
     if (!staffData || Object.keys(staffData).length === 0) {
       return res.status(400).json({ error: "Invalid request body" });
     }

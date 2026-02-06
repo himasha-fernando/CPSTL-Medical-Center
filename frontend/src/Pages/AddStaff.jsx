@@ -12,7 +12,7 @@ import AppHeader from "../Components/AppHeader";
 import AppFooter from "../Components/AppFooter";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "react-toastify";
-import axios from "axios";
+import api from "../utils/api";
 
 // List of specializations for the dropdown
 const specializations = [
@@ -141,8 +141,8 @@ function AddStaff() {
       }
 
       // POST request to backend
-      const res = await axios.post(
-        "http://localhost:5000/staff/add",
+      const res = await api.post(
+        "/staff/add",
         formData,
         {
           headers: {
